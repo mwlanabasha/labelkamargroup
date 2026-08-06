@@ -2369,6 +2369,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
     </div>
     <div class="btn-row">
       <button class="btn primary" id="btnNcSaveEdit">حفظ التعديلات</button>
+      <button class="btn" id="btnNcEditExportExcel" style="display:none;">📊 تصدير تقرير Excel</button>
       <button class="btn ghost" id="btnNcCancelEdit">إلغاء</button>
     </div>
   </div>
@@ -10967,8 +10968,11 @@ async function editNcRow(id){
   if(!canEditThis){ toast("غير مصرح لك بتعديل هذا السجل — التعديل متاح فقط لمن سجّله أو لمدير النظام","error"); return; }
   openNcEditModal(row);
 }
+let ncEditReportData = null;
 function openNcEditModal(row){
   ncEditingRowId = row.id;
+  ncEditReportData = null;
+  document.getElementById("btnNcEditExportExcel").style.display = "none";
   fillNcSelects();
   document.getElementById("e3_case_number_label").textContent = row.case_number || "";
   document.getElementById("e3_type").value = row.nc_type || "";
@@ -10989,6 +10993,8 @@ function openNcEditModal(row){
 function closeNcEditModal(){
   document.getElementById("ncEditModal").classList.remove("open");
   ncEditingRowId = null;
+  ncEditReportData = null;
+  document.getElementById("btnNcEditExportExcel").style.display = "none";
 }
 document.getElementById("btnNcCancelEdit").addEventListener("click", closeNcEditModal);
 bindBusyClick("btnNcSaveEdit", async ()=>{
@@ -11032,11 +11038,254 @@ bindBusyClick("btnNcSaveEdit", async ()=>{
   showSpinner(false);
   if(error){ toast("خطأ فى الحفظ: "+error.message,"error"); return; }
   toast("تم حفظ التعديلات بنجاح","success");
-  closeNcEditModal();
+  /* Keep the edit window open after saving (instead of auto-closing) so the
+     user can export the Excel report for this case right away; only the
+     ✕/إلغاء buttons close it now. */
+  ncEditReportData = { ...entry, case_number: document.getElementById("e3_case_number_label").textContent };
+  document.getElementById("btnNcEditExportExcel").style.display = "";
   ncLastSearchFilterSignature = null;
   runNcSearch();
   loadDashboardStats();
 });
+document.getElementById("btnNcEditExportExcel").addEventListener("click", ()=>{
+  if(ncEditReportData) exportNcSingleRecordExcel(ncEditReportData);
+});
+
+/* ===== Single-case Excel report (edit screen, after saving) =====
+   Draws one rectangular border around "البيانات الأساسية" (identity
+   fields) and a separate rectangular border around "البيانات المتغيرة"
+   (the tracking/response fields), rather than a full grid — a single
+   outline per section. */
+function buildRoundedBoxDrawingXml(boxes){
+  const anchors = boxes.map((b,i)=>(
+    '<xdr:twoCellAnchor editAs="oneCell">'
+    + '<xdr:from><xdr:col>'+b.fromCol+'</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>'+b.fromRow+'</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
+    + '<xdr:to><xdr:col>'+b.toCol+'</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>'+b.toRow+'</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
+    + '<xdr:sp macro="" textlink="">'
+    + '<xdr:nvSpPr><xdr:cNvPr id="'+(i+2)+'" name="'+escapeXmlChart(b.name||("Box"+i))+'"/><xdr:cNvSpPr/></xdr:nvSpPr>'
+    + '<xdr:spPr>'
+    + '<a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>'
+    + '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 9000"/></a:avLst></a:prstGeom>'
+    + '<a:noFill/>'
+    + '<a:ln w="28575"><a:solidFill><a:srgbClr val="'+(b.color||"2E86AB")+'"/></a:solidFill></a:ln>'
+    + '</xdr:spPr>'
+    + '<xdr:txBody><a:bodyPr/><a:lstStyle/><a:p/></xdr:txBody>'
+    + '</xdr:sp>'
+    + '<xdr:clientData/>'
+    + '</xdr:twoCellAnchor>'
+  )).join("");
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+    + anchors + '</xdr:wsDr>';
+}
+/* Excel cell borders only support straight line styles — there's no
+   "rounded corner" line, so a true rounded outline has to be a floating
+   rounded-rectangle shape (roundRect) drawn on top of the cell range
+   rather than a border set on the cells themselves. This overlays the
+   shape via the same raw-XML drawing injection already used for the
+   native pie/bar charts elsewhere in this file. */
+async function injectRoundedBoxes(buffer, sheetName, boxes){
+  const zip = await JSZip.loadAsync(buffer);
+  const wbXml = await zip.file("xl/workbook.xml").async("string");
+  const escName = sheetName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  let m = new RegExp('<sheet[^>]*name="'+escName+'"[^>]*r:id="(rId\\d+)"').exec(wbXml)
+       || new RegExp('<sheet[^>]*r:id="(rId\\d+)"[^>]*name="'+escName+'"').exec(wbXml);
+  if(!m) throw new Error("تعذر تحديد صفحة العمل لإضافة الإطار الدائرى");
+  const sheetRid = m[1];
+
+  const wbRelsPath = "xl/_rels/workbook.xml.rels";
+  const wbRelsXml = await zip.file(wbRelsPath).async("string");
+  let rm = new RegExp('<Relationship[^>]*Id="'+sheetRid+'"[^>]*Target="([^"]+)"').exec(wbRelsXml)
+        || new RegExp('<Relationship[^>]*Target="([^"]+)"[^>]*Id="'+sheetRid+'"').exec(wbRelsXml);
+  let sheetTarget = rm[1];
+  if(sheetTarget.startsWith("/")) sheetTarget = sheetTarget.slice(1);
+  if(!sheetTarget.startsWith("xl/")) sheetTarget = "xl/"+sheetTarget;
+  const sheetDir = sheetTarget.substring(0, sheetTarget.lastIndexOf("/"));
+  const sheetFile = sheetTarget.substring(sheetTarget.lastIndexOf("/")+1);
+  const sheetRelsPath = sheetDir+"/_rels/"+sheetFile+".rels";
+
+  const existingDrawingNums = Object.keys(zip.files).filter(f=>/^xl\/drawings\/drawing\d+\.xml$/.test(f)).map(f=>parseInt(f.match(/(\d+)/)[1]));
+  const drawingNum = existingDrawingNums.length ? Math.max(...existingDrawingNums)+1 : 1;
+
+  const drawingPath = "xl/drawings/drawing"+drawingNum+".xml";
+  zip.file(drawingPath, buildRoundedBoxDrawingXml(boxes));
+
+  let sheetRelsXml, sheetDrawingRid;
+  const existingSheetRels = zip.file(sheetRelsPath);
+  if(existingSheetRels){
+    sheetRelsXml = await existingSheetRels.async("string");
+    const usedIds = [...sheetRelsXml.matchAll(/Id="rId(\d+)"/g)].map(x=>parseInt(x[1]));
+    const nextId = usedIds.length ? Math.max(...usedIds)+1 : 1;
+    sheetDrawingRid = "rId"+nextId;
+    sheetRelsXml = sheetRelsXml.replace("</Relationships>",
+      '<Relationship Id="'+sheetDrawingRid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing'+drawingNum+'.xml"/></Relationships>');
+  } else {
+    sheetDrawingRid = "rId1";
+    sheetRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="'+sheetDrawingRid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing'+drawingNum+'.xml"/></Relationships>';
+  }
+  zip.file(sheetRelsPath, sheetRelsXml);
+
+  let sheetXml = await zip.file(sheetTarget).async("string");
+  const drawingTag = '<drawing r:id="'+sheetDrawingRid+'"/>';
+  sheetXml = /<extLst>/.test(sheetXml) ? sheetXml.replace("<extLst>", drawingTag+"<extLst>") : sheetXml.replace("</worksheet>", drawingTag+"</worksheet>");
+  zip.file(sheetTarget, sheetXml);
+
+  let ctXml = await zip.file("[Content_Types].xml").async("string");
+  if(!ctXml.includes('/'+drawingPath+'"')){
+    ctXml = ctXml.replace("</Types>", '<Override PartName="/'+drawingPath+'" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+    zip.file("[Content_Types].xml", ctXml);
+  }
+
+  return await zip.generateAsync({ type:"uint8array" });
+}
+function ncReportSectionHeader(sheet, row, lastCol, text, hidden){
+  sheet.mergeCells(row,1,row,lastCol);
+  const cell = sheet.getCell(row,1);
+  cell.value = text;
+  cell.alignment = { horizontal:"center", vertical:"middle" };
+  if(hidden){
+    // collapsed/borderless header band (matches the user's manually-edited template)
+    cell.font = { name:"Arial", bold:true, size:12, color:{ argb:"FFFFFFFF" } };
+    cell.fill = { type:"pattern", pattern:"none" };
+    sheet.getRow(row).height = 7.5;
+  } else {
+    cell.font = { name:"Arial", bold:true, size:12, color:{ argb:"FFFFFFFF" } };
+    cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF2E86AB" } };
+    sheet.getRow(row).height = 20.5;
+  }
+}
+function ncReportBlankGridRow(sheet, row){
+  // The gap rows (7 and 8, between the two boxes) carry the same thin grid
+  // divider lines as the data rows even though they hold no text — matches
+  // the reference template exactly (both top and bottom borders present,
+  // since neither row is the very first or very last row of the table).
+  const THIN = { style:"thin", color:{ argb:"FFFFFFFF" } };
+  const cellBorder = (leftEdge, rightEdge) => ({
+    top: THIN, bottom: THIN,
+    left: leftEdge ? undefined : THIN,
+    right: rightEdge ? undefined : THIN
+  });
+  sheet.getCell(row,1).border = cellBorder(true,false);
+  sheet.getCell(row,2).border = cellBorder(false,false);
+  sheet.getCell(row,3).border = cellBorder(false,false);
+  sheet.getCell(row,4).border = cellBorder(false,true);
+}
+function ncReportFieldRow(sheet, row, pairs, opts){
+  // pairs: [[label1,value1],[label2,value2]] — second pair optional (spans if omitted)
+  // opts: { first:true } omits the top border (row sits right under the section
+  // header / box top edge), { last:true } omits the bottom border (row sits
+  // right above the box bottom edge) — matching the reference template, where
+  // only the outer rounded box (not every cell) draws the section's outline,
+  // while a thin grid separates the rows/columns in between.
+  opts = opts || {};
+  const THIN = { style:"thin", color:{ argb:"FFFFFFFF" } };
+  const bTop = opts.first ? undefined : THIN;
+  const bBottom = opts.last ? undefined : THIN;
+  const cellBorder = (leftEdge, rightEdge) => ({
+    top: bTop, bottom: bBottom,
+    left: leftEdge ? undefined : THIN,
+    right: rightEdge ? undefined : THIN
+  });
+  const labelFont = { name:"Arial", bold:true, size:11 };
+  const valueFont = { name:"Arial", size:11 };
+  const labelFill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFD0DFE6" } };
+  sheet.getRow(row).height = 19;
+  const l1 = sheet.getCell(row,1); l1.value = pairs[0][0]; l1.font = labelFont; l1.fill = labelFill; l1.alignment = { horizontal:"center", vertical:"middle" }; l1.border = cellBorder(true,false);
+  const v1 = sheet.getCell(row,2); v1.value = pairs[0][1] || ""; v1.font = valueFont; v1.alignment = { horizontal:"right", vertical:"middle", wrapText:true }; v1.border = cellBorder(false,false);
+  if(pairs[1]){
+    const l2 = sheet.getCell(row,3); l2.value = pairs[1][0]; l2.font = labelFont; l2.fill = labelFill; l2.alignment = { horizontal:"center", vertical:"middle" }; l2.border = cellBorder(false,false);
+    const v2 = sheet.getCell(row,4); v2.value = pairs[1][1] || ""; v2.font = valueFont; v2.alignment = { horizontal:"right", vertical:"middle", wrapText:true }; v2.border = cellBorder(false,true);
+  } else {
+    const c3 = sheet.getCell(row,3); c3.border = cellBorder(false,false);
+    const c4 = sheet.getCell(row,4); c4.border = cellBorder(false,true);
+    sheet.mergeCells(row,2,row,4);
+    v1.alignment = { horizontal:"right", vertical:"middle", wrapText:true };
+  }
+}
+async function exportNcSingleRecordExcel(data){
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    await ensureJSZip();
+    const sheetName = ("تقرير حالة "+(data.case_number||"")).slice(0,31);
+    const wb = new ExcelJS.Workbook();
+    const sheet = wb.addWorksheet(sheetName, { views:[{ rightToLeft:true, showGridLines:false }] });
+    const lastCol = 4;
+    sheet.getColumn(1).width = 20;
+    sheet.getColumn(2).width = 26;
+    sheet.getColumn(3).width = 20;
+    sheet.getColumn(4).width = 29.875;
+
+    // page setup (landscape, Letter paper, centered horizontally, custom
+    // margins in cm, and "Fit Sheet on One Page" so the printout always
+    // shrinks to a single page instead of splitting across pages)
+    sheet.pageSetup = {
+      paperSize: 1, // Letter
+      orientation: "landscape",
+      horizontalCentered: true,
+      verticalCentered: false,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
+      margins: {
+        top: 1.9/2.54, bottom: 1.9/2.54,
+        left: 1.8/2.54, right: 2.3/2.54,
+        header: 0.8/2.54, footer: 0.8/2.54
+      }
+    };
+
+    // title
+    sheet.mergeCells(1,1,1,lastCol);
+    const title = sheet.getCell(1,1);
+    title.value = "تقرير حالة عدم مطابقة رقم " + (data.case_number || "");
+    title.font = { name:"Arial", bold:true, size:16, color:{ argb:"FF7030A0" } };
+    title.alignment = { horizontal:"center", vertical:"middle" };
+    title.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFF2F2F2" } };
+    sheet.getRow(1).height = 26.1;
+    sheet.getRow(2).height = 6; // spacer
+
+    // ---- section 1: البيانات الأساسية (identity fields) — rows 3-6 ----
+    ncReportSectionHeader(sheet, 3, lastCol, "البيانات الأساسية", true);
+    ncReportFieldRow(sheet, 4, [["رقم الحالة", data.case_number], ["التاريخ", formatDateDisplay(data.report_date)]], { first:true });
+    ncReportFieldRow(sheet, 5, [["الوردية", data.shift], ["القسم", data.department]]);
+    ncReportFieldRow(sheet, 6, [["نوع عدم المطابقة", data.nc_type]]);
+    [4,5,6].forEach(r=>sheet.getRow(r).height = 21.75);
+
+    sheet.getRow(7).height = 14.25; // spacer between boxes
+    sheet.getRow(8).height = 7.5;   // blank padding row inside box 2 (no header text — mirrors the hidden header row of box 1)
+    ncReportBlankGridRow(sheet, 7);
+    ncReportBlankGridRow(sheet, 8);
+
+    // ---- section 2: البيانات المتغيرة (tracking/response fields) — rows 9-14 ----
+    ncReportFieldRow(sheet, 9,  [["القائم بالمرور", data.patroler], ["مسئول المتابعة", data.followup]]);
+    ncReportFieldRow(sheet, 10, [["مسئول التنفيذ", data.executor], ["التكرارية", data.repeatability]]);
+    ncReportFieldRow(sheet, 11, [["الوقت من", data.time_from||""], ["الوقت إلى", data.time_to||""]]);
+    ncReportFieldRow(sheet, 12, [["وصف الحالة", data.status_description]]);
+    ncReportFieldRow(sheet, 13, [["الخطورة المتوقعة", data.severity]]);
+    ncReportFieldRow(sheet, 14, [["ملاحظات", data.notes||""]], { last:true });
+    [9,10,11].forEach(r=>sheet.getRow(r).height = 21.75);
+    sheet.getRow(12).height = 24;
+    sheet.getRow(13).height = 24;
+    sheet.getRow(14).height = 32.25;
+
+    let buffer = await wb.xlsx.writeBuffer();
+    // overlay a rounded-rectangle outline around each section (0-based anchors)
+    buffer = await injectRoundedBoxes(buffer, sheetName, [
+      { fromCol:0, fromRow:2, toCol:lastCol, toRow:6,  color:"000000", name:"البيانات الأساسية" },
+      { fromCol:0, fromRow:7, toCol:lastCol, toRow:14, color:"000000", name:"البيانات المتغيرة" }
+    ]);
+
+    const blob = new Blob([buffer], { type:"application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "تقرير_حالة_" + (data.case_number||"عدم_مطابقة") + ".xlsx"; a.click();
+    URL.revokeObjectURL(url);
+  }catch(err){
+    toast("حدث خطأ أثناء تصدير التقرير: "+err.message, "error");
+  }finally{
+    showSpinner(false);
+  }
+}
 
 /* ===== Export / print ===== */
 async function fetchAllMatchingNcResults(){
