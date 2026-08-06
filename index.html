@@ -368,6 +368,9 @@ input.material-issue-name{background:#fbe0e0 !important;}
 #page-arbitration .panel-title{margin-bottom:2px;padding-bottom:2px;}
 #page-arbitration .field-grid{gap:8px 12px;}
 #page-arbitration .btn-row{margin:5px 0;}
+#page-arbitration .icon-btn{padding:6px 9px;font-size:12px;}
+#arbSJudgeOpinionPanel .icon-btn{padding:5px 7px;font-size:11px;}
+#arbPrefPage .icon-btn{padding:5px 7px;font-size:11px;}
 #arbS_product_name{font-size:16px;font-weight:700;}
 #arbSJudgeOpinionPanel .field-grid{gap:6px 10px;}
 #arbSJudgeOpinionPanel .field label{font-size:11px;}
@@ -1405,13 +1408,6 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <button id="arbTabPref">🏆 التحكيم بالأفضلية</button>
           <button id="arbTabSearch">🔍 البحث</button>
         </div>
-        <div class="btn-row" id="arbAdminRow">
-          <button class="btn info" id="btnOpenArbOfficialsAdmin">👤 مسئولى التحكيم</button>
-          <button class="btn info" id="btnOpenArbDeptAdmin">🏷️ الأقسام</button>
-          <button class="btn info" id="btnOpenArbJudgesAdmin">🧑⚖️ المحكمين</button>
-          <button class="btn info" id="btnOpenArbOptionsAdmin">📝 قوائم التقييم</button>
-        </div>
-
         <!-- ================= SENSORY (تسجيل تحكيم جديد) ================= -->
         <div id="arbSensoryAnchor"></div>
         <div id="arbSensoryPage">
@@ -1420,11 +1416,26 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <div class="field-grid">
               <div class="field readonly-field"><label>رقم النموذج</label><input id="arbS_form_no" placeholder="يتم توليده تلقائياً" readonly style="font-weight:800;"></div>
               <div class="field"><label>تاريخ التحكيم</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="arbS_judging_date"></div>
-              <div class="field"><label>مسئول التحكيم</label><select id="arbS_official"></select></div>
-              <div class="field"><label>القسم</label><select id="arbS_department"></select></div>
+              <div class="field"><label>مسئول التحكيم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_official" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOfficials" title="إدارة مسئولى التحكيم">👤</button>
+                </div>
+              </div>
+              <div class="field"><label>القسم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_department" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenDept" title="إدارة الأقسام">🏷️</button>
+                </div>
+              </div>
               <div class="field"><label>إسم المنتج</label><input id="arbS_product_name"></div>
               <div class="field"><label>تاريخ التصنيع للعينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="arbS_production_date"></div>
-              <div class="field"><label>هدف التحكيم</label><select id="arbS_goal"></select></div>
+              <div class="field"><label>هدف التحكيم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_goal" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOptGoal" title="إدارة قوائم التقييم">📝</button>
+                </div>
+              </div>
               <div class="field"><label>تفاصيل</label><input id="arbS_details"></div>
               <div class="field field-wide"><label>ملاحظات عامة</label><textarea id="arbS_general_notes" rows="1" style="min-height:0;height:38px;"></textarea></div>
             </div>
@@ -1433,12 +1444,37 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <div class="panel" id="arbSJudgeOpinionPanel">
             <div class="panel-title">رأى المُحكَمين</div>
             <div class="field-grid">
-              <div class="field"><label>إسم المُحكَم</label><select id="arbS_judge_name"></select></div>
+              <div class="field"><label>إسم المُحكَم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_judge_name" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenJudges" title="إدارة المحكمين">🧑⚖️</button>
+                </div>
+              </div>
               <div class="field"><label>الوظيفة</label><input id="arbS_judge_job" placeholder="تظهر تلقائياً" readonly></div>
-              <div class="field"><label>الشكل العام</label><select id="arbS_shape"></select></div>
-              <div class="field"><label>الطعم</label><select id="arbS_taste"></select></div>
-              <div class="field"><label>اللون</label><select id="arbS_color"></select></div>
-              <div class="field"><label>الرائحة</label><select id="arbS_smell"></select></div>
+              <div class="field"><label>الشكل العام</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_shape" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOptShape" title="إدارة قوائم التقييم">📝</button>
+                </div>
+              </div>
+              <div class="field"><label>الطعم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_taste" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOptTaste" title="إدارة قوائم التقييم">📝</button>
+                </div>
+              </div>
+              <div class="field"><label>اللون</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_color" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOptColor" title="إدارة قوائم التقييم">📝</button>
+                </div>
+              </div>
+              <div class="field"><label>الرائحة</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbS_smell" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbSOpenOptSmell" title="إدارة قوائم التقييم">📝</button>
+                </div>
+              </div>
               <div class="field"><label>ملاحظات</label><input id="arbS_opinion_notes"></div>
             </div>
             <div class="btn-row">
@@ -1468,8 +1504,18 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <div class="field-grid">
               <div class="field readonly-field"><label>رقم النموذج</label><input id="arbP_form_no" placeholder="يتم توليده تلقائياً" readonly style="font-weight:800;"></div>
               <div class="field"><label>تاريخ التحكيم</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="arbP_judging_date"></div>
-              <div class="field"><label>مسئول التحكيم</label><select id="arbP_official"></select></div>
-              <div class="field"><label>القسم</label><select id="arbP_department"></select></div>
+              <div class="field"><label>مسئول التحكيم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbP_official" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbPOpenOfficials" title="إدارة مسئولى التحكيم">👤</button>
+                </div>
+              </div>
+              <div class="field"><label>القسم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbP_department" style="flex:1;"></select>
+                  <button type="button" class="icon-btn" id="btnArbPOpenDept" title="إدارة الأقسام">🏷️</button>
+                </div>
+              </div>
             </div>
             <div class="field-grid" id="arbP_samples_grid" style="margin-top:2px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));">
               <div class="field" style="justify-content:flex-end;"><button type="button" class="btn ghost" id="btnArbPAddSample" title="اضافة اسم عينة" style="white-space:nowrap;">➕ اضافة اسم عينة</button></div>
@@ -1480,7 +1526,12 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <div class="panel" id="arbPJudgeOpinionPanel">
             <div class="panel-title">رأى المُحكَمين بالأفضلية</div>
             <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr));font-size:12.5px;">
-              <div class="field"><label>إسم المُحكَم</label><select id="arbP_judge_name" style="padding:6px 8px;font-size:12.5px;"></select></div>
+              <div class="field"><label>إسم المُحكَم</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="arbP_judge_name" style="flex:1;padding:6px 8px;font-size:12.5px;"></select>
+                  <button type="button" class="icon-btn" id="btnArbPOpenJudges" title="إدارة المحكمين">🧑⚖️</button>
+                </div>
+              </div>
               <div class="field"><label>الوظيفة</label><input id="arbP_judge_job" placeholder="تظهر تلقائياً" readonly style="padding:6px 8px;font-size:12.5px;"></div>
               <div class="field"><label>العينة الأفضل</label><select id="arbP_best_sample" style="padding:6px 8px;font-size:12.5px;"></select></div>
             </div>
@@ -6574,7 +6625,8 @@ async function openArbOfficialsAdmin(){
   renderArbOfficialsTable();
   document.getElementById("arbOfficialsModal").classList.add("open");
 }
-document.getElementById("btnOpenArbOfficialsAdmin").addEventListener("click", openArbOfficialsAdmin);
+document.getElementById("btnArbSOpenOfficials").addEventListener("click", openArbOfficialsAdmin);
+document.getElementById("btnArbPOpenOfficials").addEventListener("click", openArbOfficialsAdmin);
 document.getElementById("btnArbOffClose").addEventListener("click", ()=>document.getElementById("arbOfficialsModal").classList.remove("open"));
 document.getElementById("arbOfficialsModal").addEventListener("click", (e)=>{ if(false && e.target.id==="arbOfficialsModal") document.getElementById("arbOfficialsModal").classList.remove("open"); });
 document.getElementById("btnArbOffAdd").addEventListener("click", async ()=>{
@@ -6627,7 +6679,8 @@ async function openArbDeptAdmin(){
   renderArbDeptTable();
   document.getElementById("arbDeptModal").classList.add("open");
 }
-document.getElementById("btnOpenArbDeptAdmin").addEventListener("click", openArbDeptAdmin);
+document.getElementById("btnArbSOpenDept").addEventListener("click", openArbDeptAdmin);
+document.getElementById("btnArbPOpenDept").addEventListener("click", openArbDeptAdmin);
 document.getElementById("btnArbDeptClose").addEventListener("click", ()=>document.getElementById("arbDeptModal").classList.remove("open"));
 document.getElementById("arbDeptModal").addEventListener("click", (e)=>{ if(false && e.target.id==="arbDeptModal") document.getElementById("arbDeptModal").classList.remove("open"); });
 document.getElementById("btnArbDeptAdd").addEventListener("click", async ()=>{
@@ -6681,7 +6734,8 @@ async function openArbJudgesAdmin(){
   renderArbJudgesTable();
   document.getElementById("arbJudgesModal").classList.add("open");
 }
-document.getElementById("btnOpenArbJudgesAdmin").addEventListener("click", openArbJudgesAdmin);
+document.getElementById("btnArbSOpenJudges").addEventListener("click", openArbJudgesAdmin);
+document.getElementById("btnArbPOpenJudges").addEventListener("click", openArbJudgesAdmin);
 document.getElementById("btnArbJudgeClose").addEventListener("click", ()=>document.getElementById("arbJudgesModal").classList.remove("open"));
 document.getElementById("arbJudgesModal").addEventListener("click", (e)=>{ if(false && e.target.id==="arbJudgesModal") document.getElementById("arbJudgesModal").classList.remove("open"); });
 document.getElementById("btnArbJudgeAdd").addEventListener("click", async ()=>{
@@ -6736,16 +6790,21 @@ function renderArbOptionsTable(){
         <button title="حذف" data-click="deleteArbOption" data-args='${escapeHtml(JSON.stringify([o.id]))}'>🗑️</button>
       </td></tr>`).join("");
 }
-async function openArbOptionsAdmin(){
+async function openArbOptionsAdmin(category){
   document.getElementById("arbOpt_new_value").value = "";
+  if(category){ document.getElementById("arbOpt_category").value = category; }
   await loadArbOptionsCache();
   renderArbOptionsTable();
   document.getElementById("arbOptionsModal").classList.add("open");
 }
-document.getElementById("btnOpenArbOptionsAdmin").addEventListener("click", openArbOptionsAdmin);
 document.getElementById("btnArbOptClose").addEventListener("click", ()=>document.getElementById("arbOptionsModal").classList.remove("open"));
 document.getElementById("arbOptionsModal").addEventListener("click", (e)=>{ if(false && e.target.id==="arbOptionsModal") document.getElementById("arbOptionsModal").classList.remove("open"); });
 document.getElementById("arbOpt_category").addEventListener("change", renderArbOptionsTable);
+document.getElementById("btnArbSOpenOptGoal").addEventListener("click", ()=>openArbOptionsAdmin("goal"));
+document.getElementById("btnArbSOpenOptShape").addEventListener("click", ()=>openArbOptionsAdmin("shape"));
+document.getElementById("btnArbSOpenOptTaste").addEventListener("click", ()=>openArbOptionsAdmin("taste"));
+document.getElementById("btnArbSOpenOptColor").addEventListener("click", ()=>openArbOptionsAdmin("color"));
+document.getElementById("btnArbSOpenOptSmell").addEventListener("click", ()=>openArbOptionsAdmin("smell"));
 document.getElementById("btnArbOptAdd").addEventListener("click", async ()=>{
   const cat = document.getElementById("arbOpt_category").value;
   const input = document.getElementById("arbOpt_new_value");
