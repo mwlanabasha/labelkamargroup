@@ -2423,7 +2423,21 @@ if(fpwClose2) fpwClose2.style.display = "none";
 ========================================================= */
 const SUPABASE_URL = "https://owjsxtwyuvriiyipsgjt.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93anN4dHd5dXZyaWl5aXBzZ2p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjQ5MTAsImV4cCI6MjA5ODc0MDkxMH0.cQL8D2xSCdIntsxWsAXryBHDpIYMMN-RVse7qkQGUO4";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: {
+    /* On mobile networks a request can stall indefinitely (dead connection,
+       tower handoff, weak signal) with no error ever firing, which is what
+       made the app look permanently "stuck loading" with dead buttons on
+       phones. Force every Supabase request to give up after 20s so it
+       fails fast and the UI can recover instead of hanging forever. */
+    fetch: (url, options = {}) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      return fetch(url, { ...options, signal: controller.signal })
+        .finally(() => clearTimeout(timeoutId));
+    }
+  }
+});
 
 /* =========================================================
    GLOBAL ACTION DELEGATION (data-click / data-dblclick / data-change)
@@ -2640,19 +2654,24 @@ document.getElementById("auth_username").addEventListener("keydown", (e)=>{
 document.getElementById("auth_password").addEventListener("keydown", (e)=>{
   if(e.key === "Enter"){ e.preventDefault(); document.getElementById("btnLogin").click(); }
 });
-document.getElementById("authUsernameDropdown").addEventListener("mousedown", (e)=>{
+const pickUsernameFromEvent = (e)=>{
   const item = e.target.closest(".auth-username-dropdown-item");
   if(!item) return;
+  e.preventDefault();
   const username = item.dataset.username;
   if(e.target.classList.contains("auth-username-remove")){
-    e.preventDefault();
     removeSavedUsername(username);
     return;
   }
   document.getElementById("auth_username").value = username;
   closeUsernameDropdown();
   document.getElementById("auth_password").focus();
-});
+};
+/* Same touch reasoning as the searchable-select dropdowns above: pick on
+   touchend (the real moment the finger lifts) instead of relying only on
+   the delayed synthetic mousedown, which can miss on mobile. */
+document.getElementById("authUsernameDropdown").addEventListener("touchend", pickUsernameFromEvent, { passive: false });
+document.getElementById("authUsernameDropdown").addEventListener("mousedown", pickUsernameFromEvent);
 document.addEventListener("click", (e)=>{
   if(!e.target.closest("#auth_username") && !e.target.closest("#authUsernameDropdown")){
     closeUsernameDropdown();
@@ -3160,7 +3179,25 @@ function toast(msg, type="info"){
   wrap.appendChild(el);
   setTimeout(()=>{ el.remove(); }, 3500);
 }
-function showSpinner(v){ document.getElementById("spinner-overlay").style.display = v ? "flex" : "none"; }
+let __spinnerWatchdog = null;
+function showSpinner(v){
+  document.getElementById("spinner-overlay").style.display = v ? "flex" : "none";
+  /* Safety net: every showSpinner(true) in the file is followed by
+     showSpinner(false) in the *same* function, with no try/finally. If the
+     awaited call in between throws or hangs (very common on flaky mobile
+     data), that showSpinner(false) never runs and this full-screen overlay
+     is left sitting on top of the whole app forever — every button looks
+     "dead" even though it's really just an invisible glass pane blocking
+     taps. This watchdog guarantees the overlay is force-hidden after 20s
+     no matter what happened, so the app can never get stuck this way. */
+  if(__spinnerWatchdog){ clearTimeout(__spinnerWatchdog); __spinnerWatchdog = null; }
+  if(v){
+    __spinnerWatchdog = setTimeout(()=>{
+      document.getElementById("spinner-overlay").style.display = "none";
+      try{ toast("العملية استغرقت وقتاً أطول من المعتاد، تحقق من الاتصال بالإنترنت وحاول مرة أخرى","error"); }catch(e){}
+    }, 20000);
+  }
+}
 function todayStr(){
   const d = new Date();
   const y = d.getFullYear();
@@ -3847,15 +3884,27 @@ function enhanceSearchableSelect(inputId){
       closeDropdown();
     }
   });
-  dropdown.addEventListener("mousedown", (e)=>{
+  /* mousedown (not click) is used so preventDefault can stop the input
+     from blurring before the value is picked. On touch devices the
+     synthetic mousedown that follows a tap can arrive late — often after
+     the on-screen keyboard has already started closing and reflowing the
+     page — so the tap can land on the wrong spot or never resolve at all.
+     touchend with its own preventDefault picks the option immediately on
+     the actual finger-lift, before any of that reflow happens, and also
+     suppresses the later synthetic mousedown/click so the selection only
+     fires once. */
+  const pickOptionFromEvent = (e)=>{
     const opt = e.target.closest(".smart-select-opt");
-    if(!opt) return;
+    if(!opt) return false;
     e.preventDefault();
     const idx = parseInt(opt.dataset.idx,10);
     input.value = currentOptions[idx];
     input.dispatchEvent(new Event("change",{bubbles:true}));
     closeDropdown();
-  });
+    return true;
+  };
+  dropdown.addEventListener("touchend", pickOptionFromEvent, { passive: false });
+  dropdown.addEventListener("mousedown", pickOptionFromEvent);
   document.addEventListener("click", (e)=>{
     if(!wrap.contains(e.target)) closeDropdown();
   });
