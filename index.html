@@ -101,26 +101,146 @@ BEGIN
 END;
 $$;
 
--- 6. Dashboard stats, computed server-side. The app already calls
---    sb.rpc("get_dashboard_stats") and only falls back to downloading every
---    row of disposal_reports (department, product_name, quantity for the
---    WHOLE table) when this function is missing — which it was, so every
---    dashboard load was pulling the entire table over the network. This
---    does the count/sum/distinct-count work in the database instead, so the
---    app only receives one small row back. Safe to run multiple times.
+-- =====================================================================
+-- 6. Performance RPCs — run in the Supabase SQL Editor (safe to re-run)
+--    These move aggregation & lookups onto the server so the phone never
+--    downloads full tables just to compute a number or fill a dropdown.
+-- =====================================================================
+
+-- Dashboard stats: single aggregate row, no full-table scan to the phone.
 CREATE OR REPLACE FUNCTION get_dashboard_stats()
-RETURNS TABLE(total_count BIGINT, total_qty NUMERIC, dept_count BIGINT, product_count BIGINT)
-LANGUAGE sql
-STABLE
+RETURNS TABLE(total_count bigint, total_qty numeric, dept_count bigint, product_count bigint)
+LANGUAGE sql STABLE
 AS $$
-  SELECT
-    COUNT(*)                       AS total_count,
-    COALESCE(SUM(quantity), 0)     AS total_qty,
-    COUNT(DISTINCT department)     AS dept_count,
-    COUNT(DISTINCT product_name)   AS product_count
+  SELECT count(*)::bigint,
+         coalesce(sum(quantity), 0),
+         count(DISTINCT department)::bigint,
+         count(DISTINCT product_name)::bigint
   FROM disposal_reports;
 $$;
-GRANT EXECUTE ON FUNCTION get_dashboard_stats() TO authenticated;
+
+-- Reports: per-department SUM/COUNT aggregation with the same optional
+-- filters as the reports screen (date range / department / product / direction).
+CREATE OR REPLACE FUNCTION get_disposal_report_stats(
+  from_date date DEFAULT NULL,
+  to_date date DEFAULT NULL,
+  dept text DEFAULT NULL,
+  prod text DEFAULT NULL,
+  dir text DEFAULT NULL
+)
+RETURNS TABLE(department text, total_qty numeric, report_count bigint)
+LANGUAGE plpgsql STABLE
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.department, sum(r.quantity)::numeric, count(*)::bigint
+  FROM disposal_reports r
+  WHERE (from_date IS NULL OR r.report_date >= from_date)
+    AND (to_date IS NULL OR r.report_date <= to_date)
+    AND (dept IS NULL OR r.department ILIKE '%' || dept || '%')
+    AND (prod IS NULL OR r.product_name ILIKE '%' || prod || '%')
+    AND (dir IS NULL OR r.direction ILIKE '%' || dir || '%')
+  GROUP BY r.department
+  ORDER BY total_qty DESC;
+END;
+$$;
+
+-- Disposal search totals: one call returns both the exact count and the
+-- quantity sum for the current filters (replaces two heavy queries).
+CREATE OR REPLACE FUNCTION get_disposal_search_total(
+  report_from date DEFAULT NULL, report_to date DEFAULT NULL,
+  receipt_from date DEFAULT NULL, receipt_to date DEFAULT NULL,
+  approval_from date DEFAULT NULL, approval_to date DEFAULT NULL,
+  report_number text DEFAULT NULL,
+  delivery_person text DEFAULT NULL,
+  department text DEFAULT NULL,
+  product_name text DEFAULT NULL,
+  direction text DEFAULT NULL,
+  freetext text DEFAULT NULL
+)
+RETURNS TABLE(total_count bigint, total_qty numeric)
+LANGUAGE plpgsql STABLE
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT count(*)::bigint, coalesce(sum(r.quantity), 0)
+  FROM disposal_reports r
+  WHERE (report_from IS NULL OR r.report_date >= report_from)
+    AND (report_to IS NULL OR r.report_date <= report_to)
+    AND (receipt_from IS NULL OR r.receipt_date >= receipt_from)
+    AND (receipt_to IS NULL OR r.receipt_date <= receipt_to)
+    AND (approval_from IS NULL OR r.approval_date >= approval_from)
+    AND (approval_to IS NULL OR r.approval_date <= approval_to)
+    AND (report_number IS NULL OR r.report_number ILIKE '%' || report_number || '%')
+    AND (delivery_person IS NULL OR r.delivery_person ILIKE '%' || delivery_person || '%')
+    AND (department IS NULL OR r.department ILIKE '%' || department || '%')
+    AND (product_name IS NULL OR r.product_name ILIKE '%' || product_name || '%')
+    AND (direction IS NULL OR r.direction ILIKE '%' || direction || '%')
+    AND (freetext IS NULL
+         OR r.delivery_person ILIKE '%' || freetext || '%'
+         OR r.department ILIKE '%' || freetext || '%'
+         OR r.product_name ILIKE '%' || freetext || '%'
+         OR r.direction ILIKE '%' || freetext || '%'
+         OR r.general_notes ILIKE '%' || freetext || '%'
+         OR r.quantity_notes ILIKE '%' || freetext || '%'
+         OR r.report_number ILIKE '%' || freetext || '%');
+END;
+$$;
+
+-- Next arbitration form number: computed inside PostgreSQL (max+1 per
+-- session_type) so the phone never downloads thousands of rows again.
+CREATE OR REPLACE FUNCTION get_next_arbitration_form_number(session_type text DEFAULT NULL)
+RETURNS text
+LANGUAGE plpgsql STABLE
+AS $$
+DECLARE
+  v_max numeric;
+BEGIN
+  SELECT max(form_no::numeric) INTO v_max
+  FROM arb_sessions
+  WHERE (session_type IS NULL OR arb_sessions.session_type = get_next_arbitration_form_number.session_type)
+    AND form_no::text ~ '^[0-9]+$';
+  RETURN COALESCE(v_max, 0) + 1;
+END;
+$$;
+
+-- Receiving lookups: all three autocomplete lists (supplier / manufacturer /
+-- origin) in ONE request instead of three.
+CREATE OR REPLACE FUNCTION get_receiving_lookups()
+RETURNS jsonb
+LANGUAGE plpgsql STABLE
+AS $$
+DECLARE
+  v_suppliers jsonb; v_manufacturers jsonb; v_origins jsonb;
+BEGIN
+  SELECT coalesce(jsonb_agg(d ORDER BY d), '[]'::jsonb) INTO v_suppliers
+  FROM (SELECT DISTINCT supplier d FROM material_receipts WHERE supplier IS NOT NULL AND supplier <> '') s;
+  SELECT coalesce(jsonb_agg(d ORDER BY d), '[]'::jsonb) INTO v_manufacturers
+  FROM (SELECT DISTINCT manufacturer d FROM material_receipts WHERE manufacturer IS NOT NULL AND manufacturer <> '') s;
+  SELECT coalesce(jsonb_agg(d ORDER BY d), '[]'::jsonb) INTO v_origins
+  FROM (SELECT DISTINCT origin d FROM material_receipts WHERE origin IS NOT NULL AND origin <> '') s;
+  RETURN jsonb_build_object('suppliers', v_suppliers, 'manufacturers', v_manufacturers, 'origins', v_origins);
+END;
+$$;
+
+-- Disposal lookups: all six autocomplete lists in ONE request instead of six.
+CREATE OR REPLACE FUNCTION get_disposal_lookups()
+RETURNS jsonb
+LANGUAGE plpgsql STABLE
+AS $$
+DECLARE v jsonb;
+BEGIN
+  SELECT jsonb_build_object(
+    'delivery_person', coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT delivery_person d FROM disposal_reports WHERE delivery_person IS NOT NULL AND delivery_person <> '') s), '[]'::jsonb),
+    'department',      coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT department d FROM disposal_reports WHERE department IS NOT NULL AND department <> '') s), '[]'::jsonb),
+    'product_name',    coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT product_name d FROM disposal_reports WHERE product_name IS NOT NULL AND product_name <> '') s), '[]'::jsonb),
+    'direction',       coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT direction d FROM disposal_reports WHERE direction IS NOT NULL AND direction <> '') s), '[]'::jsonb),
+    'quantity_notes',  coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT quantity_notes d FROM disposal_reports WHERE quantity_notes IS NOT NULL AND quantity_notes <> '') s), '[]'::jsonb),
+    'general_notes',   coalesce((SELECT jsonb_agg(d ORDER BY d) FROM (SELECT DISTINCT general_notes d FROM disposal_reports WHERE general_notes IS NOT NULL AND general_notes <> '') s), '[]'::jsonb)
+  ) INTO v;
+  RETURN v;
+END;
+$$;
 
 -->
 <!DOCTYPE html>
@@ -155,7 +275,7 @@ if (window.top !== window.self) {
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@supabase/supabase-js@2.112.2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
 /* =========================================================
    LAZY LIBRARY LOADER
@@ -495,13 +615,6 @@ tbody td.wrap-cell{white-space:normal;word-break:break-word;overflow-wrap:break-
 tbody tr:nth-child(even){background:var(--grid-row-alt);}
 tbody tr{transition:background-color .15s ease;}
 tbody tr:hover{background:#ffe9f2;}
-/* Rows/cells that rely on a double-click (data-dblclick) to open the edit
-   modal: on phones, two quick taps are normally swallowed by the browser's
-   built-in "double-tap to zoom" gesture instead of firing a JS dblclick
-   event, so the edit action silently does nothing. touch-action:manipulation
-   tells the browser these elements are never meant to be double-tap-zoomed,
-   which lets the real dblclick event through on mobile. */
-[data-dblclick]{ touch-action: manipulation; }
 [data-theme="dark"] tbody tr:hover{background:#3a2530;}
 .row-actions button{border:none;background:none;cursor:pointer;font-size:15px;margin:0 3px;}
 .total-bar{margin-top:10px;text-align:center;background:var(--bg-header);border:1px solid var(--border-thin);
@@ -555,7 +668,7 @@ tbody tr:hover{background:#ffe9f2;}
 }
 
 /* ===== EDIT MODAL ===== */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:6000;padding:16px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:8000;padding:16px;}
 .modal-overlay.open{display:flex;}
 .modal-box{position:relative;background:var(--bg-panel);border-radius:10px;padding:18px;width:100%;max-width:760px;max-height:90vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:modalIn .2s ease;}
 .modal-x-close{position:absolute;top:12px;right:14px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid var(--danger,#e53935);cursor:pointer;font-size:16px;line-height:1;font-weight:900;color:var(--danger,#e53935);background:var(--bg-panel);box-shadow:0 1px 5px rgba(0,0,0,.18);transition:background .15s,color .15s,transform .1s;z-index:6;user-select:none;}
@@ -583,7 +696,7 @@ tbody tr:hover{background:#ffe9f2;}
 .img-thumb .img-remove{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;cursor:pointer;}
 .gallery-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
 .gallery-grid img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--border-thin);cursor:zoom-in;}
-.lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:7000;padding:20px;}
+.lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:8500;padding:20px;}
 .lightbox-overlay.open{display:flex;}
 .lightbox-overlay img{max-width:92vw;max-height:92vh;border-radius:6px;}
 
@@ -1881,7 +1994,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- STANDALONE MODAL: production/expiry/batch registration (ADD FORM) -->
-<div id="rcvBatchDatesModal" class="modal-overlay" style="z-index:6100;">
+<div id="rcvBatchDatesModal" class="modal-overlay" style="z-index:8100;">
   <div class="modal-box" style="max-width:960px; width:96%;">
     <span class="modal-x-close" data-close-target="btnCloseBatchDatesModal" title="إغلاق">✕</span>
     <div class="modal-title">تسجيل تاريخ الإنتاج / الإنتهاء / التشغيلة</div>
@@ -1902,7 +2015,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- STANDALONE MODAL: image uploads (ADD FORM) -->
-<div id="rcvImagesModal" class="modal-overlay" style="z-index:6100;">
+<div id="rcvImagesModal" class="modal-overlay" style="z-index:8100;">
   <div class="modal-box" style="max-width:900px;">
     <span class="modal-x-close" data-close-target="btnCloseRcvImagesModal" title="إغلاق">✕</span>
     <div class="modal-title">رفع صور المحضر / الافراج الجمركى / الخامة</div>
@@ -1928,7 +2041,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- STANDALONE MODAL: production/expiry/batch registration (EDIT MODAL) -->
-<div id="rcvBatchDatesModalEdit" class="modal-overlay" style="z-index:6100;">
+<div id="rcvBatchDatesModalEdit" class="modal-overlay" style="z-index:8100;">
   <div class="modal-box" style="max-width:960px; width:96%;">
     <span class="modal-x-close" data-close-target="btnCloseBatchDatesModalEdit" title="إغلاق">✕</span>
     <div class="modal-title">تسجيل تاريخ الإنتاج / الإنتهاء / التشغيلة</div>
@@ -1949,7 +2062,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- STANDALONE MODAL: image uploads (EDIT MODAL) -->
-<div id="rcvImagesModalEdit" class="modal-overlay" style="z-index:6100;">
+<div id="rcvImagesModalEdit" class="modal-overlay" style="z-index:8100;">
   <div class="modal-box" style="max-width:900px;">
     <span class="modal-x-close" data-close-target="btnCloseRcvImagesModalEdit" title="إغلاق">✕</span>
     <div class="modal-title">صور المحضر / الافراج الجمركى / الخامة</div>
@@ -2201,7 +2314,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- nonconformity: generic managed lists (الأقسام / مسئولى التنفيذ / مسئولى المتابعة / القائمين بالمرور / الخطورة المتوقعة / وصف الحالة / التكرارية) admin modal -->
-<div id="ncListModal" class="modal-overlay" style="z-index:6100;">
+<div id="ncListModal" class="modal-overlay" style="z-index:8100;">
   <div class="modal-box" style="max-width:1000px; width:96%;">
     <span class="modal-x-close" data-close-target="btnNcListClose" title="إغلاق">✕</span>
     <div class="modal-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -2220,7 +2333,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 </div>
 
 <!-- nonconformity: TIME PICKER MODAL (professional clock face — opens on field click or 🕐 button) -->
-<div id="ncTimeModal" class="modal-overlay" style="z-index:6200;">
+<div id="ncTimeModal" class="modal-overlay" style="z-index:8200;">
   <div class="modal-box" style="max-width:400px;">
     <style>
       .nc-time-header{display:flex;justify-content:center;align-items:flex-start;gap:10px;margin:10px 0 6px;}
@@ -2483,12 +2596,16 @@ function applyRolePermissions(){
 async function loadMyProfile(){
   const { data: { user } } = await sb.auth.getUser();
   if(!user) return null;
-  let { data, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
-  if(error || !data){
-    await new Promise(r=>setTimeout(r,900));
-    ({ data, error } = await sb.from("profiles").select("*").eq("id", user.id).single());
+  /* Retry with a short backoff instead of a fixed 900ms blind wait — the
+     app shell is not blocked for a full second on slow networks. */
+  const delays = [0, 500, 1100];
+  for(let i = 0; i < delays.length; i++){
+    if(i > 0) await new Promise(r=>setTimeout(r, delays[i]));
+    const { data, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
+    if(!error && data) return data;
+    if(i === delays.length - 1 && error) console.warn("loadMyProfile failed after retries:", error);
   }
-  return data;
+  return null;
 }
 
 async function enterApp(){
@@ -2526,7 +2643,6 @@ async function enterApp(){
   idleWork(()=>{ refreshAllDatalists(); });
   idleWork(()=>{ loadDashboardStats(); });
   updateReportNumberPreview();
-  idleWork(()=>{ initArbitrationPage(); });
   let restoredFromInactivity = false;
   try{
     const raw = localStorage.getItem("inactivityLogoutState");
@@ -3204,8 +3320,8 @@ function goto(page){
   document.querySelectorAll("#bottomNav .bn-item").forEach(n=>n.classList.toggle("active", n.dataset.page===page));
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active", p.id==="page-"+page));
   document.getElementById("page-title").textContent = pageTitles[page] || page;
-  if(page==="disposal") refreshBatchTable();
-  if(page==="receiving") initReceivingPage();
+  if(page==="disposal"){ refreshBatchTable(); startDisposalRealtime(); } else { stopDisposalRealtime(); }
+  if(page==="receiving"){ initReceivingPage(); startRcvRealtime(); } else { stopRcvRealtime(); }
   if(page==="reports") loadReport();
   if(page==="dashboard") loadDashboardStats();
   if(page==="users") loadUsersPage();
@@ -3279,20 +3395,54 @@ themeBtn.addEventListener("click", ()=>{
 /* =========================================================
    AUTOCOMPLETE
 ========================================================= */
+const DISPOSAL_LOOKUP_COLS = [
+  { col:"delivery_person", listId:"dl_delivery" },
+  { col:"department", listId:"dl_department" },
+  { col:"product_name", listId:"dl_product" },
+  { col:"direction", listId:"dl_direction" },
+  { col:"quantity_notes", listId:"dl_qtynotes" },
+  { col:"general_notes", listId:"dl_notes" }
+];
+function fillDatalistFromMap(map){
+  for(const { col, listId } of DISPOSAL_LOOKUP_COLS){
+    const vals = (map && map[col]) || [];
+    const dl = document.getElementById(listId);
+    if(dl) dl.innerHTML = vals.filter(Boolean).map(v=>`<option value="${escapeHtml(v)}">`).join("");
+  }
+}
 async function fillDatalist(col, listId){
   const { data, error } = await sb.from(TABLE).select(col).not(col,"is",null).limit(1000);
-  if(error) return;
-  const unique = [...new Set(data.map(r=>r[col]).filter(Boolean))];
-  const dl = document.getElementById(listId);
-  dl.innerHTML = unique.map(v=>`<option value="${escapeHtml(v)}">`).join("");
+  if(error) return [];
+  return [...new Set(data.map(r=>r[col]).filter(Boolean))];
 }
-function refreshAllDatalists(){
-  fillDatalist("delivery_person","dl_delivery");
-  fillDatalist("department","dl_department");
-  fillDatalist("product_name","dl_product");
-  fillDatalist("direction","dl_direction");
-  fillDatalist("quantity_notes","dl_qtynotes");
-  fillDatalist("general_notes","dl_notes");
+/* Refresh the disposal autocomplete lists once, then serve them from the
+   IndexedDB cache (15-min TTL). The combined get_disposal_lookups() RPC
+   replaces 6 separate network round-trips with a single one. Pass force=true
+   right after a save/edit so the cache picks up the new values. */
+async function refreshAllDatalists(force){
+  const hit = await refCacheGet("disposal_lookups");
+  const fresh = hit && hit.value && (Date.now()-hit.ts) < REF_CACHE_TTL;
+  if(!force && fresh){
+    fillDatalistFromMap(hit.value);
+    return;
+  }
+  let map = null;
+  try{
+    const { data, error } = await sb.rpc("get_disposal_lookups");
+    if(!error && data && typeof data === "object"){
+      map = {};
+      for(const { col } of DISPOSAL_LOOKUP_COLS){
+        map[col] = Array.isArray(data[col]) ? data[col].filter(Boolean) : [];
+      }
+    }
+  }catch(e){ /* RPC not deployed yet — fall through to individual queries */ }
+  if(!map){
+    map = {};
+    const lists = await Promise.all(DISPOSAL_LOOKUP_COLS.map(({col,listId})=>fillDatalist(col,listId)));
+    DISPOSAL_LOOKUP_COLS.forEach(({col},i)=>{ map[col] = lists[i] || []; });
+  }
+  fillDatalistFromMap(map);
+  await refCachePut("disposal_lookups", map);
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
@@ -4338,30 +4488,15 @@ bindBusyClick("btnFinalSave", async ()=>{
   if(batch.length===0){ toast("لا توجد عناصر لحفظها","warning"); return; }
   showSpinner(true);
   const { data: inserted, error } = await sb.from(TABLE).insert(batch).select();
+  showSpinner(false);
   if(error){
-    showSpinner(false);
     toast("خطأ فى الحفظ: "+error.message,"error");
     return;
   }
-  toast("تم حفظ "+batch.length+" محضر بنجاح","success");
-
-  const totalImages = batchImages.reduce((s,arr)=>s+(arr?arr.length:0),0);
-  if(totalImages > 0 && Array.isArray(inserted)){
-    const uploadTasks = [];
-    for(let i=0;i<inserted.length;i++){
-      const files = batchImages[i] || [];
-      for(const file of files){
-        uploadTasks.push(uploadImageForReport(inserted[i].id, file));
-      }
-    }
-    const rows = (await Promise.all(uploadTasks)).filter(Boolean);
-    const uploadedCount = await insertImageRows(rows);
-    const failedCount = uploadTasks.length - uploadedCount;
-    if(failedCount>0) toast(`تم رفع ${uploadedCount} صورة، وفشل رفع ${failedCount}`,"warning");
-    else if(uploadedCount>0) toast(`تم رفع ${uploadedCount} صورة بنجاح`,"success");
-  }
-
-  showSpinner(false);
+  const savedBatch = batch.slice();
+  const savedImages = batchImages.slice();
+  const insertedRows = Array.isArray(inserted) ? inserted : [];
+  toast("تم حفظ "+savedBatch.length+" محضر بنجاح","success");
   batch = [];
   batchImages = [];
   editingBatchIndex = null;
@@ -4369,9 +4504,33 @@ bindBusyClick("btnFinalSave", async ()=>{
   seqBaselineCache = {};
   lastSearchFilterSignature = null;
   refreshBatchTable();
-  refreshAllDatalists();
-  loadDashboardStats();
+  /* Image upload + datalist refresh now run in the background AFTER the
+     success toast, so the phone returns control to the user as soon as the
+     rows are committed to the database. */
+  backgroundAfterDisposalSave(insertedRows, savedImages);
 });
+
+async function backgroundAfterDisposalSave(insertedRows, savedImages){
+  try{
+    const totalImages = savedImages.reduce((s,arr)=>s+(arr?arr.length:0),0);
+    if(totalImages > 0 && insertedRows.length > 0){
+      const uploadTasks = [];
+      for(let i=0;i<insertedRows.length;i++){
+        const files = savedImages[i] || [];
+        for(const file of files){
+          uploadTasks.push(uploadImageForReport(insertedRows[i].id, file));
+        }
+      }
+      const rows = (await Promise.all(uploadTasks)).filter(Boolean);
+      const uploadedCount = await insertImageRows(rows);
+      const failedCount = uploadTasks.length - uploadedCount;
+      if(failedCount>0) toast(`تم رفع ${uploadedCount} صورة، وفشل رفع ${failedCount}`,"warning");
+      else if(uploadedCount>0) toast(`تم رفع ${uploadedCount} صورة بنجاح`,"success");
+    }
+  }catch(e){ console.error("backgroundAfterDisposalSave:", e); }
+  refreshAllDatalists(true);
+  loadDashboardStats();
+}
 
 async function uploadImageForReport(reportId, file){
   // Storage upload only — returns the DB row to insert, or null on failure.
@@ -4448,12 +4607,12 @@ function applySearchFilters(q){
 
 /* =========================================================
    PAGINATION (search table) — server-side range pagination.
-   Two lightweight parallel queries per page:
+   Two lightweight parallel requests per page:
      1) the actual page rows (narrow column list, .range())
-     2) a "quantity"-only + {count:'exact'} query across ALL
-        matches, used only for the total-count / total-qty
-        summary line. Both scale with result size instead of
-        always pulling up to 2000 full rows.
+     2) the get_disposal_search_total() RPC, which computes the
+        total-count / total-qty summary inside PostgreSQL.
+   Both scale with result size instead of always pulling up to
+   2000 full rows.
 ========================================================= */
 let searchCurrentPage = 1;
 let searchTotalCount = 0;
@@ -4475,6 +4634,27 @@ function computeSearchFilterSignature(){
 }
 let lastSearchFilterSignature = null;
 
+/* The totals query is served by the get_disposal_search_total() RPC, which
+   reproduces the same filter logic server-side. This helper sends only the
+   active filters, so the phone never downloads every matching row just to
+   count them. */
+function buildSearchTotalsParams(){
+  return {
+    report_from: document.getElementById("s_report_from").value || null,
+    report_to: document.getElementById("s_report_to").value || null,
+    receipt_from: document.getElementById("s_receipt_from").value || null,
+    receipt_to: document.getElementById("s_receipt_to").value || null,
+    approval_from: document.getElementById("s_approval_from").value || null,
+    approval_to: document.getElementById("s_approval_to").value || null,
+    report_number: document.getElementById("s_report_number").value.trim() || null,
+    delivery_person: document.getElementById("s_delivery_person").value.trim() || null,
+    department: document.getElementById("s_department").value.trim() || null,
+    product_name: document.getElementById("s_product").value.trim() || null,
+    direction: getDirectionValue("s_direction","s_direction_other") || null,
+    freetext: document.getElementById("s_freetext").value.trim() || null
+  };
+}
+
 async function fetchSearchPage(){
   showSpinner(true);
   const pageSize = getConfiguredPageSize();
@@ -4490,14 +4670,13 @@ async function fetchSearchPage(){
   // so skip re-running it and reuse the totals from the last search.
   const sig = computeSearchFilterSignature();
   const needCount = sig !== lastSearchFilterSignature;
-  let aggQ = null;
+  let aggP = null;
   if(needCount){
-    aggQ = sb.from(TABLE).select("quantity", { count: "exact" });
-    aggQ = applySearchFilters(aggQ);
+    aggP = sb.rpc("get_disposal_search_total", buildSearchTotalsParams());
   }
 
   const usernamesP = getUsernameMap();
-  const [pageRes, aggRes] = await Promise.all([pageQ, needCount ? aggQ : Promise.resolve(null)]);
+  const [pageRes, aggRes] = await Promise.all([pageQ, needCount ? aggP : Promise.resolve(null)]);
   if(pageRes.error){ showSpinner(false); toast("خطأ فى البحث: "+pageRes.error.message,"error"); return; }
 
   const usernames = await usernamesP;
@@ -4505,13 +4684,15 @@ async function fetchSearchPage(){
 
   if(needCount){
     lastSearchFilterSignature = sig;
-    if(aggRes.error){
-      // fall back to page-only totals rather than failing the whole search
+    const summary = (!aggRes || aggRes.error) ? null : (Array.isArray(aggRes.data) ? aggRes.data[0] : aggRes.data);
+    if(summary){
+      searchTotalCount = Number(summary.total_count ?? searchResults.length);
+      searchTotalQty = Number(summary.total_qty ?? 0);
+    } else {
+      /* RPC totals not available — fall back to page-only totals rather than
+         downloading every matching row just to count them. */
       searchTotalCount = searchResults.length;
       searchTotalQty = searchResults.reduce((s,r)=>s+Number(r.quantity||0),0);
-    } else {
-      searchTotalCount = aggRes.count ?? 0;
-      searchTotalQty = (aggRes.data||[]).reduce((s,r)=>s+Number(r.quantity||0),0);
     }
   }
 
@@ -4528,11 +4709,19 @@ async function runSearch(){
 // Fetched on-demand (only when actually exporting/printing), same filters+sort.
 async function fetchAllMatchingSearchResults(){
   let q = sb.from(TABLE).select("id,report_number,report_date,receipt_date,approval_date,delivery_person,department,product_name,quantity,quantity_notes,direction,general_notes,created_by");
-  q = applySearchFilters(q).order(sortKey || "report_date", { ascending: sortKey ? sortDir > 0 : false }).limit(2000);
-  const { data, error } = await q;
-  if(error) throw new Error(error.message);
+  q = applySearchFilters(q).order(sortKey || "report_date", { ascending: sortKey ? sortDir > 0 : false });
+  /* Chunked fetch: pull up to 1,000 rows at a time so exports aren't
+     silently truncated by the default 1,000-row limit. */
+  const all = [];
+  for(let start=0;;start+=1000){
+    const { data, error } = await q.range(start, start+999);
+    if(error) throw new Error(error.message);
+    const rows = data||[];
+    all.push(...rows);
+    if(rows.length < 1000) break;
+  }
   const usernames = await getUsernameMap();
-  return (data||[]).map(r=>({ ...r, creator:{ username: usernames[r.created_by] || "" } }));
+  return all.map(r=>({ ...r, creator:{ username: usernames[r.created_by] || "" } }));
 }
 bindBusyClick("btnSearch", runSearch, "جارٍ البحث...");
 document.getElementById("btnResetSearch").addEventListener("click", ()=>{
@@ -5144,25 +5333,17 @@ async function fetchDashboardStats(){
   /* Prefer the server-side aggregate RPC (one round trip, created in
      optimizations.sql); fall back to the old full-table scan if the RPC
      hasn't been deployed yet. */
-  try{
-    const { data, error } = await sb.rpc("get_dashboard_stats");
-    if(!error && data && Array.isArray(data) && data.length){
-      const row = data[0];
-      return {
-        count: Number(row.total_count || 0),
-        qty: Number(row.total_qty || 0),
-        dept: Number(row.dept_count || 0),
-        product: Number(row.product_count || 0)
-      };
-    }
-  }catch(e){ /* fall through to legacy query */ }
-  const { data, error } = await sb.from(TABLE).select("department,product_name,quantity");
-  if(error) throw error;
+  /* The RPC is the ONLY source for dashboard stats — the legacy fallback
+     that downloaded the whole table (department,product_name,quantity) has
+     been removed; it was the main cause of slow dashboard loading on phones. */
+  const { data, error } = await sb.rpc("get_dashboard_stats");
+  if(error || !data || !Array.isArray(data) || !data.length) throw (error || new Error("get_dashboard_stats لم تُرجع بيانات"));
+  const row = data[0];
   return {
-    count: data.length,
-    qty: data.reduce((s,r)=>s+Number(r.quantity||0),0),
-    dept: new Set(data.map(r=>r.department)).size,
-    product: new Set(data.map(r=>r.product_name)).size
+    count: Number(row.total_count || 0),
+    qty: Number(row.total_qty || 0),
+    dept: Number(row.dept_count || 0),
+    product: Number(row.product_count || 0)
   };
 }
 
@@ -5208,20 +5389,29 @@ async function loadReport(){
   const prod = document.getElementById("r_product").value.trim();
   const dir = getDirectionValue("r_direction","r_direction_other");
 
-  let q = sb.from(TABLE).select("department,quantity,report_date,product_name,direction");
-  if(from) q = q.gte("report_date", from);
-  if(to) q = q.lte("report_date", to);
-  if(dept) q = q.ilike("department", `%${dept}%`);
-  if(prod) q = q.ilike("product_name", `%${prod}%`);
-  if(dir) q = q.ilike("direction", `%${dir}%`);
-
   showSpinner(true);
-  const { data, error } = await q;
+  let data = null;
+  try{
+    const { data: res, error } = await sb.rpc("get_disposal_report_stats", {
+      from_date: from || null,
+      to_date: to || null,
+      dept: dept || null,
+      prod: prod || null,
+      dir: dir || null
+    });
+    if(error) throw error;
+    data = res || [];
+  }catch(err){
+    showSpinner(false);
+    toast("تعذر تحميل التقرير — تأكد من إنشاء دالة get_disposal_report_stats فى Supabase: "+(err.message||err.code||"خطأ غير معروف"),"error");
+    return;
+  }
   showSpinner(false);
-  if(error){ toast("خطأ فى تحميل التقرير: "+error.message,"error"); return; }
 
+  /* Aggregation happens inside PostgreSQL (GROUP BY department) — the phone
+     receives a few summary rows instead of the whole table. */
   const totals = {};
-  (data||[]).forEach(r=>{ totals[r.department] = (totals[r.department]||0) + Number(r.quantity||0); });
+  (data||[]).forEach(r=>{ totals[r.department] = (totals[r.department]||0) + Number(r.total_qty||0); });
   const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
   const labels = sorted.map(x=>x[0]);
   const values = sorted.map(x=>Number(x[1].toFixed(3)));
@@ -5322,30 +5512,48 @@ document.getElementById("btnSaveSettings").addEventListener("click", ()=>{
 
 /* =========================================================
    REALTIME
+   Channels are page-scoped: each channel is subscribed only while its
+   page is open and unsubscribed when the user leaves the page. This stops
+   the phone from holding always-on WebSocket feeds for screens the user
+   isn't looking at.
 ========================================================= */
-sb.channel("disposal-changes")
-  .on("postgres_changes",{event:"*",schema:"public",table:TABLE}, ()=>{
-    loadDashboardStats();
-    lastSearchFilterSignature = null;
-    if(document.getElementById("page-disposal").classList.contains("active") &&
-       document.getElementById("disposalSearch").style.display !== "none"){
-      runSearch();
-    }
-  })
-  .subscribe();
+let disposalChannel = null;
+let rcvChannel = null;
 
+function startDisposalRealtime(){
+  if(disposalChannel) return;
+  disposalChannel = sb.channel("disposal-changes")
+    .on("postgres_changes",{event:"*",schema:"public",table:TABLE}, ()=>{
+      loadDashboardStats();
+      lastSearchFilterSignature = null;
+      if(document.getElementById("page-disposal").classList.contains("active") &&
+         document.getElementById("disposalSearch").style.display !== "none"){
+        runSearch();
+      }
+    })
+    .subscribe();
+}
+function stopDisposalRealtime(){
+  if(disposalChannel){ try{ sb.removeChannel(disposalChannel); }catch(e){} disposalChannel = null; }
+}
 /* material_receipts realtime (requires the table added to the supabase_realtime
    publication — included in optimizations.sql). Refreshes the receiving search
    results when another session saves a record. */
-sb.channel("rcv-changes")
-  .on("postgres_changes",{event:"*",schema:"public",table:"material_receipts"}, ()=>{
-    lastRcvFilterSignature = null;
-    if(document.getElementById("page-receiving").classList.contains("active") &&
-       document.getElementById("rcvSearch").style.display !== "none"){
-      runRcvSearch();
-    }
-  })
-  .subscribe();
+function startRcvRealtime(){
+  if(rcvChannel) return;
+  rcvChannel = sb.channel("rcv-changes")
+    .on("postgres_changes",{event:"*",schema:"public",table:"material_receipts"}, ()=>{
+      lastRcvFilterSignature = null;
+      if(document.getElementById("page-receiving").classList.contains("active") &&
+         document.getElementById("rcvSearch").style.display !== "none"){
+        runRcvSearch();
+      }
+    })
+    .subscribe();
+}
+function stopRcvRealtime(){
+  if(rcvChannel){ try{ sb.removeChannel(rcvChannel); }catch(e){} rcvChannel = null; }
+}
 
 /* =========================================================
    ATP PAGE
@@ -6327,17 +6535,52 @@ bindBusyClick("btnMatAdd", async ()=>{
 /* =========================================================
    RAW MATERIALS RECEIVING FORM LOGIC
 ========================================================= */
+const RCV_LOOKUP_COLS = [
+  { col:"supplier", rpcKey:"suppliers", listId:"dl_rcv_supplier" },
+  { col:"manufacturer", rpcKey:"manufacturers", listId:"dl_rcv_manufacturer" },
+  { col:"origin", rpcKey:"origins", listId:"dl_rcv_origin" }
+];
+function fillRcvLookupMap(map){
+  for(const { col, listId } of RCV_LOOKUP_COLS){
+    const vals = (map && map[col]) || [];
+    const dl = document.getElementById(listId);
+    if(dl) dl.innerHTML = vals.filter(Boolean).map(v=>`<option value="${escapeHtml(v)}">`).join("");
+  }
+}
 async function fillRcvDatalist(col, listId){
   const { data, error } = await sb.from(RCV_TABLE).select(col).not(col,"is",null).limit(1000);
-  if(error) return;
-  const unique = [...new Set(data.map(r=>r[col]).filter(Boolean))];
-  const dl = document.getElementById(listId);
-  if(dl) dl.innerHTML = unique.map(v=>`<option value="${escapeHtml(v)}">`).join("");
+  if(error) return [];
+  return [...new Set(data.map(r=>r[col]).filter(Boolean))];
 }
-function refreshRcvDatalists(){
-  fillRcvDatalist("supplier","dl_rcv_supplier");
-  fillRcvDatalist("manufacturer","dl_rcv_manufacturer");
-  fillRcvDatalist("origin","dl_rcv_origin");
+/* Receiving lookups (supplier/manufacturer/origin) are fetched via the
+   get_receiving_lookups() RPC (1 request instead of 3) and cached in
+   IndexedDB for 15 minutes. The cache is refreshed only when data actually
+   changes (force=true after a save), never on every page open. */
+async function refreshRcvDatalists(force){
+  const hit = await refCacheGet("rcv_lookups");
+  const fresh = hit && hit.value && (Date.now()-hit.ts) < REF_CACHE_TTL;
+  if(!force && fresh){
+    fillRcvLookupMap(hit.value);
+    fillEngineersDatalist();
+    return;
+  }
+  let map = null;
+  try{
+    const { data, error } = await sb.rpc("get_receiving_lookups");
+    if(!error && data && typeof data === "object"){
+      map = {};
+      for(const { col, rpcKey } of RCV_LOOKUP_COLS){
+        map[col] = Array.isArray(data[rpcKey]) ? data[rpcKey].filter(Boolean) : [];
+      }
+    }
+  }catch(e){ /* RPC not deployed yet — fall through to individual queries */ }
+  if(!map){
+    map = {};
+    const lists = await Promise.all(RCV_LOOKUP_COLS.map(({col,listId})=>fillRcvDatalist(col,listId)));
+    RCV_LOOKUP_COLS.forEach(({col},i)=>{ map[col] = lists[i] || []; });
+  }
+  fillRcvLookupMap(map);
+  await refCachePut("rcv_lookups", map);
   fillEngineersDatalist();
 }
 
@@ -6461,20 +6704,30 @@ function arbNormalizeDigits(str){
   });
 }
 async function arbGetNextFormNo(sessionType){
+  /* Primary path: the get_next_arbitration_form_number() RPC computes
+     max+1 inside PostgreSQL and returns ONE number — the phone never
+     downloads the sessions table anymore. */
   try{
-    let q = sb.from(ARB_SESSIONS_TABLE).select("form_no").limit(100000);
+    const { data, error } = await sb.rpc("get_next_arbitration_form_number", { session_type: sessionType || null });
+    if(!error && data != null){
+      const raw = Array.isArray(data) ? (data[0] ?? null) : data;
+      const n = parseInt(raw, 10);
+      if(!isNaN(n)) return String(n);
+    } else if(error && !String(error.message||"").includes("Could not find the function")){
+      console.warn("arbGetNextFormNo RPC error:", error.message);
+    }
+  }catch(e){}
+  /* Fallback (RPC not deployed yet): request only the single highest
+     form_no row instead of scanning up to 100,000 rows. */
+  try{
+    let q = sb.from(ARB_SESSIONS_TABLE).select("form_no").order("form_no", { ascending: false }).limit(1);
     if(sessionType) q = q.eq("session_type", sessionType);
     const { data, error } = await q;
-    if(error){ console.error("arbGetNextFormNo query error:", error); return "1"; }
-    if(!data || !data.length) return "1";
-    let max = 0;
-    data.forEach(r=>{
-      if(r.form_no==null) return;
-      const digitsOnly = arbNormalizeDigits(r.form_no).replace(/[^0-9]/g, "");
-      const n = parseInt(digitsOnly, 10);
-      if(!isNaN(n) && n>max) max = n;
-    });
-    return String(max+1);
+    if(error){ console.error("arbGetNextFormNo fallback query error:", error); return "1"; }
+    if(!data || !data.length || data[0].form_no==null) return "1";
+    const digitsOnly = arbNormalizeDigits(data[0].form_no).replace(/[^0-9]/g, "");
+    const n = parseInt(digitsOnly, 10);
+    return String((isNaN(n)?0:n)+1);
   } catch(e){ console.error("arbGetNextFormNo failed:", e); return "1"; }
 }
 
@@ -9002,35 +9255,44 @@ bindBusyClick("btnRcvFinalSave", async ()=>{
     updated_at: stamp, updated_by: myProfile?myProfile.id:null, updated_by_name: myProfile?myProfile.username:null
   }));
   const { data: inserted, error } = await sb.from(RCV_TABLE).insert(payload).select();
-  if(error){ showSpinner(false); toast("خطأ فى الحفظ: "+error.message,"error"); return; }
-  toast("تم حفظ "+rcvBatch.length+" سجل بنجاح","success");
-
-  if(Array.isArray(inserted)){
-    const uploadTasks = [];
-    for(let i=0;i<inserted.length;i++){
-      const imgs = rcvBatchImages[i] || {};
-      for(const cat of Object.keys(imgs)){
-        for(const file of imgs[cat]){
-          uploadTasks.push(uploadRcvImage(inserted[i].id, cat, file));
-        }
-      }
-    }
-    const rows = (await Promise.all(uploadTasks)).filter(Boolean);
-    const uploaded = await insertRcvImageRows(rows);
-    const failed = uploadTasks.length - uploaded;
-    if(failed>0) toast(`تم رفع ${uploaded} صورة، وفشل رفع ${failed}`,"warning");
-    else if(uploaded>0) toast(`تم رفع ${uploaded} صورة بنجاح`,"success");
-  }
-
   showSpinner(false);
+  if(error){ toast("خطأ فى الحفظ: "+error.message,"error"); return; }
+  const savedBatch = rcvBatch.slice();
+  const savedImages = rcvBatchImages.slice();
+  const insertedRows = Array.isArray(inserted) ? inserted : [];
+  toast("تم حفظ "+savedBatch.length+" سجل بنجاح","success");
   rcvBatch = []; rcvBatchImages = []; rcvEditingBatchIndex = null;
   lastRcvFilterSignature = null;
   setRcvAddButtonMode(false);
   refreshRcvBatchTable();
-  refreshRcvDatalists();
   clearRcvDraft();
-  loadMaterialIssuesFlags(true);
+  /* Image upload + datalist refresh happen in the background AFTER the
+     success toast, so the phone returns control to the user immediately. */
+  backgroundAfterRcvSave(insertedRows, savedImages);
 });
+
+async function backgroundAfterRcvSave(insertedRows, savedImages){
+  try{
+    if(insertedRows.length > 0){
+      const uploadTasks = [];
+      for(let i=0;i<insertedRows.length;i++){
+        const imgs = savedImages[i] || {};
+        for(const cat of Object.keys(imgs)){
+          for(const file of imgs[cat]){
+            uploadTasks.push(uploadRcvImage(insertedRows[i].id, cat, file));
+          }
+        }
+      }
+      const rows = (await Promise.all(uploadTasks)).filter(Boolean);
+      const uploaded = await insertRcvImageRows(rows);
+      const failed = uploadTasks.length - uploaded;
+      if(failed>0) toast(`تم رفع ${uploaded} صورة، وفشل رفع ${failed}`,"warning");
+      else if(uploaded>0) toast(`تم رفع ${uploaded} صورة بنجاح`,"success");
+    }
+  }catch(e){ console.error("backgroundAfterRcvSave:", e); }
+  refreshRcvDatalists(true);
+  loadMaterialIssuesFlags(true);
+}
 
 document.getElementById("tabRcvNew").addEventListener("click", ()=>{
   document.getElementById("tabRcvNew").classList.add("active");
@@ -9124,10 +9386,18 @@ async function runRcvSearch(){
 // fetched on-demand only when the user actually exports/prints.
 async function fetchAllMatchingRcvResults(){
   let q = sb.from(RCV_TABLE).select("*");
-  q = applyRcvSearchFilters(q).order("receipt_date",{ascending:false}).limit(2000);
-  const { data, error } = await q;
-  if(error) throw new Error(error.message);
-  return data || [];
+  q = applyRcvSearchFilters(q).order("receipt_date",{ascending:false});
+  /* Chunked fetch: pull up to 1,000 rows at a time so exports aren't
+     silently truncated by the default 1,000-row limit. */
+  const all = [];
+  for(let start=0;;start+=1000){
+    const { data, error } = await q.range(start, start+999);
+    if(error) throw new Error(error.message);
+    const rows = data||[];
+    all.push(...rows);
+    if(rows.length < 1000) break;
+  }
+  return all;
 }
 
 document.getElementById("btnRcvSearchGo").addEventListener("click", runRcvSearch);
@@ -11344,16 +11614,6 @@ resetInactivityTimer();
       navigator.serviceWorker.register("./sw.js").catch(()=>{});
     }
   }catch(e){}
-
-  /* Start fetching flatpickr in the background right away (while the login
-     screen / session check is still happening) instead of waiting until
-     after a successful login. enterApp() awaits ensureFlatpickr() before the
-     date fields become usable, so on a slow mobile connection that used to
-     mean a visible stall right after logging in; this way the library is
-     usually already cached and ready by the time it's needed. Errors are
-     swallowed here — enterApp() still awaits the real ensureFlatpickr() call
-     and will retry/surface any failure there. */
-  try{ ensureFlatpickr().catch(()=>{}); }catch(e){}
 
   const loggedOutForBeingClosed = await checkAutoLogoutAfterClose();
   if(!loggedOutForBeingClosed){
