@@ -2990,10 +2990,13 @@ bindBusyClick("btnFpwSubmit", async ()=>{
   }
 
   showSpinner(true);
+  const resetToken = (crypto.randomUUID ? crypto.randomUUID() : ("tk_" + Math.random().toString(36).slice(2) + Date.now()));
+  try{ localStorage.setItem("pwResetToken_" + username, resetToken); }catch(e){}
   const { error: insertError } = await sb.from("password_reset_requests").insert({
     user_id: profile.found_user_id,
     username: username,
-    status: "pending"
+    status: "pending",
+    reset_token: resetToken
   });
   showSpinner(false);
   if(insertError){
@@ -3012,10 +3015,18 @@ bindBusyClick("btnFpwSetNew", async ()=>{
   if(!newPw || newPw.length < 6){ msgEl.textContent = "كلمة السر يجب أن تكون 6 أحرف على الأقل"; return; }
   if(newPw !== confirmPw){ msgEl.textContent = "كلمة السر وتأكيدها غير متطابقين"; return; }
 
+  let resetToken = "";
+  try{ resetToken = localStorage.getItem("pwResetToken_" + fpwApprovedUsername) || ""; }catch(e){}
+  if(!resetToken){
+    msgEl.textContent = "لا يمكن إتمام التغيير من هذا الجهاز. أرسل الطلب من نفس المتصفح الذي أرسلت منه طلب استرجاع كلمة السر.";
+    return;
+  }
+
   showSpinner(true);
   const { error } = await sb.rpc("user_complete_password_reset", {
     check_username: fpwApprovedUsername,
-    new_password: newPw
+    new_password: newPw,
+    reset_token: resetToken
   });
   showSpinner(false);
   if(error){
@@ -3026,6 +3037,8 @@ bindBusyClick("btnFpwSetNew", async ()=>{
     }
     return;
   }
+
+  try{ localStorage.removeItem("pwResetToken_" + fpwApprovedUsername); }catch(e){}
 
   closeForgotPasswordModal();
   toast("تم تعيين كلمة السر الجديدة بنجاح. يمكنك تسجيل الدخول الآن.", "success");
@@ -3210,11 +3223,11 @@ async function deleteUserProfile(id, username){
   if(id===myProfile.id){ toast("لا يمكنك حذف حسابك الخاص","warning"); return; }
   const u = usersCache.find(x=>x.id===id);
   if(isPrimaryAdmin(u)){ toast(`لا يمكن حذف ${PRIMARY_ADMIN_USERNAME} — هو المدير الرئيسى للنظام`,"error"); return; }
-  if(!confirm(`هل أنت متأكد من حذف المستخدم "${username}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+  if(!confirm(`هل أنت متأكد من حذف المستخدم "${username}" نهائياً؟ سيتم حذف حساب تسجيل الدخول بالكامل ولا يمكن التراجع.`)) return;
   showSpinner(true);
-  const { error } = await sb.from("profiles").delete().eq("id", id);
+  const { error } = await sb.rpc("admin_delete_user", { v_user_id: id });
   showSpinner(false);
-  if(error){ toast("خطأ فى الحذف: "+(error.message||error.code||"خطأ غير معروف"),"error"); return; }
+  if(error){ toast("خطأ فى الحذف: "+(error.message||error.code||"خطأ غير معروف")+" (تأكد من إنشاء دالة admin_delete_user فى Supabase)","error"); return; }
   await logAudit("delete_user", id, { username });
   await refCacheDelete("usernames");
   toast("تم حذف المستخدم بنجاح","success");
