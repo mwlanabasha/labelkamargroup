@@ -5,12 +5,15 @@
 ║  Safe to run multiple times (uses IF NOT EXISTS / OR REPLACE)║
 ╚══════════════════════════════════════════════════════════════╝
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
 -- 1. Create password_reset_requests table
 CREATE TABLE IF NOT EXISTS password_reset_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT NOT NULL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending','approved','completed','cancelled')),
+  reset_token TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -76,28 +79,43 @@ $$;
 --    themselves sets their own new password with this function (still runs
 --    before login, hence SECURITY DEFINER) — it re-checks approval status
 --    itself so it can't be called without admin sign-off.
-CREATE OR REPLACE FUNCTION user_complete_password_reset(check_username TEXT, new_password TEXT)
+CREATE OR REPLACE FUNCTION user_complete_password_reset(check_username TEXT, new_password TEXT, reset_token TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_user_id UUID;
+  v_req_id  UUID;
+  v_reset_token TEXT := reset_token;
 BEGIN
   SELECT profiles.id INTO v_user_id FROM profiles WHERE profiles.username = check_username;
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'USER_NOT_FOUND';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM password_reset_requests
-    WHERE user_id = v_user_id AND status = 'approved'
-  ) THEN
+  IF v_reset_token IS NULL OR trim(v_reset_token) = '' THEN
+    RAISE EXCEPTION 'INVALID_RESET_TOKEN';
+  END IF;
+
+  SELECT prr.id INTO v_req_id
+  FROM password_reset_requests prr
+  WHERE prr.user_id = v_user_id
+    AND prr.status = 'approved'
+    AND prr.reset_token = v_reset_token
+  ORDER BY prr.created_at DESC
+  LIMIT 1;
+
+  IF v_req_id IS NULL THEN
     RAISE EXCEPTION 'NOT_APPROVED';
   END IF;
 
-  UPDATE auth.users SET encrypted_password = crypt(new_password, gen_salt('bf')) WHERE id = v_user_id;
-  UPDATE password_reset_requests SET status = 'completed' WHERE user_id = v_user_id AND status = 'approved';
+  UPDATE auth.users
+  SET encrypted_password = crypt(new_password, gen_salt('bf'))
+  WHERE id = v_user_id;
+
+  UPDATE password_reset_requests
+  SET status = 'completed'
+  WHERE id = v_req_id;
 END;
 $$;
 
@@ -2230,6 +2248,25 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   </div>
 </div>
 
+<!-- login conflict: user already has an active session elsewhere -->
+<div id="sessionConflictModal" class="modal-overlay" style="z-index:9000;">
+  <div class="modal-box" style="max-width:460px; width:96%;">
+    <span class="modal-x-close" data-close-target="btnConflictCancel" title="إغلاق">✕</span>
+    <div class="modal-title">يوجد نشاط مفتوح لهذا المستخدم</div>
+    <div style="display:flex;gap:14px;align-items:flex-start;margin:16px 0 8px;">
+      <div style="font-size:34px;line-height:1;">⚠️</div>
+      <div style="font-size:13.5px;line-height:1.9;">
+        <p style="margin-bottom:6px;">المستخدم <b id="conflictUsernameLabel"></b> مسجّل دخوله حاليًا على جهاز آخر.</p>
+        <p style="opacity:.85;">إذا أردت الدخول من هذا الجهاز، ستُغلق الجلسة السابقة، ولن تتمكن من الوصول إليها إلا بتسجيل دخول جديد.</p>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn danger" id="btnConflictProceed" style="flex:1;">إغلاق الجلسة الأخرى والدخول</button>
+      <button class="btn ghost" id="btnConflictCancel" style="flex:1;">إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <!-- arbitration: departments (أقسام التحكيم) admin modal -->
 <div id="arbDeptModal" class="modal-overlay">
   <div class="modal-box" style="max-width:1000px; width:96%;">
@@ -2609,6 +2646,55 @@ async function loadMyProfile(){
   return null;
 }
 
+async function getUsernameLoginStatus(username){
+  const { data, error } = await sb.rpc("get_username_login_status", { check_username: username });
+  if(error){
+    console.warn("getUsernameLoginStatus error", error);
+    return false;
+  }
+  return Array.isArray(data) ? !!data[0]?.has_active_session : false;
+}
+
+async function setMyLoginStatus(loggedIn){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session) __cachedAccessToken = session.access_token;
+  const { error } = await sb.rpc("set_my_login_status", { logged_in: loggedIn });
+  if(error){
+    console.warn("setMyLoginStatus error", error);
+  }
+}
+
+/* ===== تسجيل خروج تلقائي عند غلق المتصفح =====
+   حتى يتحرر اسم المستخدم فوراً ويمكن الدخول به من متصفح آخر. */
+let __cachedAccessToken = null;
+const LOGIN_HEARTBEAT_MS = 1 * 1000;
+let loginHeartbeatTimer = null;
+
+function startLoginHeartbeat(){
+  stopLoginHeartbeat();
+  loginHeartbeatTimer = setInterval(()=>{ setMyLoginStatus(true); }, LOGIN_HEARTBEAT_MS);
+}
+function stopLoginHeartbeat(){
+  if(loginHeartbeatTimer){ clearInterval(loginHeartbeatTimer); loginHeartbeatTimer = null; }
+}
+
+function fireLogoutOnClose(){
+  if(!__cachedAccessToken) return;
+  try{
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/set_my_login_status`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${__cachedAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ logged_in: false })
+    }).catch(()=>{});
+  }catch(e){}
+}
+window.addEventListener("pagehide", ()=>{ if(myProfile) fireLogoutOnClose(); });
+
 async function enterApp(){
   showSpinner(true);
   myProfile = await loadMyProfile();
@@ -2623,6 +2709,8 @@ async function enterApp(){
     await sb.auth.signOut();
     return;
   }
+  await setMyLoginStatus(true);
+  startLoginHeartbeat();
   myRole = myProfile.role;
   myIsActive = myProfile.is_active;
   myPagePermissions = myProfile.page_permissions || {};
@@ -2811,6 +2899,24 @@ bindBusyClick("btnLogin", async ()=>{
     document.getElementById("authMsg").textContent = "اسم المستخدم أو كلمة المرور غير صحيحة";
     return;
   }
+  if(error){
+    registerFailedLogin();
+    document.getElementById("authMsg").textContent = "اسم المستخدم أو كلمة المرور غير صحيحة";
+    return;
+  }
+
+  const alreadyLoggedIn = await getUsernameLoginStatus(username);
+  if(alreadyLoggedIn){
+    __conflictProceed = async (uname)=>{
+      clearLoginAttempts();
+      addSavedUsername(uname);
+      try{ localStorage.removeItem("savedUsername"); }catch(e){}
+      await enterApp();
+    };
+    openSessionConflictModal(username);
+    return;
+  }
+
   clearLoginAttempts();
   addSavedUsername(username);
   try{ localStorage.removeItem("savedUsername"); }catch(e){}
@@ -2843,8 +2949,45 @@ bindBusyClick("btnRegister", async ()=>{
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+  stopLoginHeartbeat();
+  await setMyLoginStatus(false);
   await sb.auth.signOut();
   location.reload();
+});
+
+/* =========================================================
+   SESSION CONFLICT MODAL (نشاط مفتوح لهذا المستخدم)
+   يظهر بعد إدخال بيانات صحيحة إذا كان نفس المستخدم مسجلاً
+   دخوله من جهاز آخر: خيار إغلاق الجلسة القديمة والدخول،
+   أو إلغاء الدخول والبقاء خارجاً.
+========================================================= */
+let __conflictUsername = null;
+let __conflictProceed = null;
+
+function openSessionConflictModal(username){
+  __conflictUsername = username || "";
+  document.getElementById("conflictUsernameLabel").textContent = __conflictUsername;
+  document.getElementById("sessionConflictModal").classList.add("open");
+}
+function closeSessionConflictModal(){
+  __conflictUsername = null;
+  document.getElementById("sessionConflictModal").classList.remove("open");
+}
+
+document.getElementById("btnConflictProceed").addEventListener("click", async ()=>{
+  const proceed = __conflictProceed;
+  const username = __conflictUsername;
+  closeSessionConflictModal();
+  if(proceed) await proceed(username);
+});
+document.getElementById("btnConflictCancel").addEventListener("click", async ()=>{
+  __conflictProceed = null;
+  closeSessionConflictModal();
+  await sb.auth.signOut();
+  document.getElementById("authMsg").textContent = "تم إلغاء تسجيل الدخول. إذا كنت مسجلاً دخولك بالفعل من جهاز آخر، أنهِ جلسة هذا المستخدم من ذلك الجهاز أولاً.";
+});
+document.getElementById("sessionConflictModal").addEventListener("click", (e)=>{
+  if(false && e.target.id === "sessionConflictModal") closeSessionConflictModal();
 });
 
 /* =========================================================
@@ -2992,12 +3135,7 @@ bindBusyClick("btnFpwSubmit", async ()=>{
   showSpinner(true);
   const resetToken = (crypto.randomUUID ? crypto.randomUUID() : ("tk_" + Math.random().toString(36).slice(2) + Date.now()));
   try{ localStorage.setItem("pwResetToken_" + username, resetToken); }catch(e){}
-  const { error: insertError } = await sb.from("password_reset_requests").insert({
-    user_id: profile.found_user_id,
-    username: username,
-    status: "pending",
-    reset_token: resetToken
-  });
+  const { error: insertError } = await sb.rpc("request_password_reset", { check_username: username, reset_token: resetToken });
   showSpinner(false);
   if(insertError){
     msgEl.textContent = "حدث خطأ أثناء إرسال الطلب: " + insertError.message;
@@ -3598,6 +3736,7 @@ function closeAllOpenModalsAndOverlays(){
   document.querySelectorAll(".modal-overlay.open").forEach(m=>{
     if(m.id === "editModal") closeEditModal();
     else if(m.id === "permissionsModal") closePermissionsModal();
+    else if(m.id === "sessionConflictModal"){ document.getElementById("btnConflictCancel").click(); }
     else m.classList.remove("open");
   });
 }
@@ -11834,6 +11973,8 @@ async function checkAutoLogoutAfterClose(){
   try{ localStorage.removeItem(APP_CLOSE_TS_KEY); }catch(e){}
   const elapsed = Date.now() - parseInt(ts, 10);
   if(isNaN(elapsed) || elapsed < AUTO_LOGOUT_MS) return false;
+  stopLoginHeartbeat();
+  await setMyLoginStatus(false);
   await sb.auth.signOut();
   return true;
 }
@@ -11853,6 +11994,8 @@ async function handleInactivityTimeout(){
         date: todayStr()
       }));
     }catch(e){}
+    await setMyLoginStatus(false);
+    stopLoginHeartbeat();
     await sb.auth.signOut();
     try{ toast("تم تسجيل الخروج تلقائيًا لعدم النشاط لمدة 10 دقائق","info"); }catch(e){}
   }catch(e){}
