@@ -293,7 +293,7 @@ if (window.top !== window.self) {
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.112.3"></script>
 <script>
 /* =========================================================
    LAZY LIBRARY LOADER
@@ -2631,20 +2631,51 @@ function applyRolePermissions(){
   if(finalSaveBtn) finalSaveBtn.disabled = false;
 }
 
+/* ===== تشخيص مؤقت: كل استدعاء لـ signOut بيسجّل السبب + الوقت + الـ
+   stack trace فى الـ Console، عشان نعرف بالظبط مين اللى بينفّذ تسجيل
+   الخروج فى المرة الجاية اللى يحصل فيها. افتح Developer Tools (F12) ->
+   Console قبل ما تسجّل دخول، وسيبها مفتوحة لحد ما يحصل تسجيل الخروج،
+   وابعتلي اللي طلع فيها. ممكن تتشال بعد ما نحل المشكلة نهائياً. */
+async function debugSignOut(reason){
+  console.warn("[AUTO-LOGOUT DEBUG] signOut() called — reason:", reason, "| time:", new Date().toISOString());
+  console.trace();
+  return sb.auth.signOut();
+}
+
 async function loadMyProfile(){
   const { data: { user } } = await sb.auth.getUser();
   if(!user) return null;
   /* Retry with a short backoff instead of a fixed 900ms blind wait — the
      app shell is not blocked for a full second on slow networks. */
   const delays = [0, 500, 1100];
+  let lastError = null;
   for(let i = 0; i < delays.length; i++){
     if(i > 0) await new Promise(r=>setTimeout(r, delays[i]));
     const { data, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
     if(!error && data) return data;
-    if(i === delays.length - 1 && error) console.warn("loadMyProfile failed after retries:", error);
+    lastError = error;
+    if(i === delays.length - 1 && error) console.warn("loadMyProfile (direct select) failed after retries:", error);
   }
+  /* Fallback: get_my_profile() is a SECURITY DEFINER RPC (see schema.sql)
+     that bypasses RLS entirely and always returns the caller's own row.
+     If the direct select above failed because of an RLS policy problem —
+     the #1 suspect behind "logged out immediately after login" — this
+     still succeeds, so a misconfigured/missing policy on `profiles` can
+     no longer bounce the user straight back to the login screen. */
+  try{
+    const { data: rpcRows, error: rpcError } = await sb.rpc("get_my_profile");
+    if(!rpcError && Array.isArray(rpcRows) && rpcRows[0]) return rpcRows[0];
+    if(rpcError) lastError = rpcError;
+  }catch(e){ /* RPC not deployed yet (older DB) — fall through to failure below */ }
+  /* Surface *why* it failed on the object itself so callers (and whoever is
+     debugging a "logged out right after login" report) can tell a genuine
+     missing/blocked profile row (error.code 'PGRST116' = no row, '42501' /
+     RLS permission-denied) apart from a plain network hiccup, instead of
+     both looking identical ("تعذر تحميل بيانات الحساب"). */
+  __lastLoadProfileError = lastError;
   return null;
 }
+let __lastLoadProfileError = null;
 
 async function getUsernameLoginStatus(username){
   const { data, error } = await sb.rpc("get_username_login_status", { check_username: username });
@@ -2655,9 +2686,16 @@ async function getUsernameLoginStatus(username){
   return Array.isArray(data) ? !!data[0]?.has_active_session : false;
 }
 
+/* لا تستدعي sb.auth.getSession() هنا: كانت بتتنادى كل ثانية طول عمر
+   الجلسة (LOGIN_HEARTBEAT_MS القديمة = 1000)، وده نمط معروف إنه بيسبب
+   تعارض (race) مع تجديد التوكن التلقائي فى supabase-js — لو نبضتين
+   حصل بينهم تداخل وقت قرب انتهاء الـ access token، كل واحدة ممكن تحاول
+   تجدد التوكن بنفس الـ refresh token، والسيرفر بيرفض الاستخدام التاني
+   له (rotation) ويقفل الجلسة بالكامل فورًا من غير أي signOut() صريح فى
+   الكود — وده بالظبط اللي كان بيظهر كـ"خروج تلقائي أثناء الاستخدام
+   العادي بدون سبب واضح". __cachedAccessToken بقى بيتحدّث من حدث
+   onAuthStateChange بس (شوف نهاية الملف)، مش من نداء منفصل هنا. */
 async function setMyLoginStatus(loggedIn){
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session) __cachedAccessToken = session.access_token;
   const { error } = await sb.rpc("set_my_login_status", { logged_in: loggedIn });
   if(error){
     console.warn("setMyLoginStatus error", error);
@@ -2667,12 +2705,20 @@ async function setMyLoginStatus(loggedIn){
 /* ===== تسجيل خروج تلقائي عند غلق المتصفح =====
    حتى يتحرر اسم المستخدم فوراً ويمكن الدخول به من متصفح آخر. */
 let __cachedAccessToken = null;
-const LOGIN_HEARTBEAT_MS = 1 * 1000;
+const LOGIN_HEARTBEAT_MS = 3 * 1000;
 let loginHeartbeatTimer = null;
+let __heartbeatInFlight = false;
 
 function startLoginHeartbeat(){
   stopLoginHeartbeat();
-  loginHeartbeatTimer = setInterval(()=>{ setMyLoginStatus(true); }, LOGIN_HEARTBEAT_MS);
+  loginHeartbeatTimer = setInterval(async ()=>{
+    /* منع تداخل نبضتين لو نبضة سابقة لسه ماخلصتش (بطء شبكة مثلاً) —
+       ده جزء من نفس إصلاح مشكلة الـ race أعلاه. */
+    if(__heartbeatInFlight) return;
+    __heartbeatInFlight = true;
+    try{ await setMyLoginStatus(true); }
+    finally{ __heartbeatInFlight = false; }
+  }, LOGIN_HEARTBEAT_MS);
 }
 function stopLoginHeartbeat(){
   if(loginHeartbeatTimer){ clearInterval(loginHeartbeatTimer); loginHeartbeatTimer = null; }
@@ -2700,13 +2746,23 @@ async function enterApp(){
   myProfile = await loadMyProfile();
   showSpinner(false);
   if(!myProfile){
-    toast("تعذر تحميل بيانات الحساب، حاول تسجيل الدخول مرة أخرى","error");
-    await sb.auth.signOut();
+    /* Include the underlying Supabase error (code/message) in the console
+       and, temporarily, in the toast itself — this is the #1 diagnostic
+       signal for "gets logged out immediately after login": a permission-
+       denied code (42501 / RLS) means the `profiles` table is missing a
+       SELECT policy for the logged-in user; a "no rows" code (PGRST116)
+       means there is no profiles row for this auth user id at all. */
+    const errDetail = __lastLoadProfileError
+      ? (__lastLoadProfileError.code || "") + " " + (__lastLoadProfileError.message || "")
+      : "لا يوجد صف مطابق فى profiles أو خطأ شبكة";
+    console.error("enterApp: loadMyProfile returned null —", __lastLoadProfileError);
+    toast("تعذر تحميل بيانات الحساب: " + errDetail, "error");
+    await debugSignOut("enterApp: profile load failed (" + errDetail + ")");
     return;
   }
   if(!myProfile.is_active){
     toast("هذا الحساب غير مفعّل بعد. تواصل مع مدير النظام لتفعيله.","error");
-    await sb.auth.signOut();
+    await debugSignOut("enterApp: profile.is_active is false");
     return;
   }
   await setMyLoginStatus(true);
@@ -2899,11 +2955,6 @@ bindBusyClick("btnLogin", async ()=>{
     document.getElementById("authMsg").textContent = "اسم المستخدم أو كلمة المرور غير صحيحة";
     return;
   }
-  if(error){
-    registerFailedLogin();
-    document.getElementById("authMsg").textContent = "اسم المستخدم أو كلمة المرور غير صحيحة";
-    return;
-  }
 
   const alreadyLoggedIn = await getUsernameLoginStatus(username);
   if(alreadyLoggedIn){
@@ -2951,7 +3002,7 @@ bindBusyClick("btnRegister", async ()=>{
 document.getElementById("logoutBtn").addEventListener("click", async ()=>{
   stopLoginHeartbeat();
   await setMyLoginStatus(false);
-  await sb.auth.signOut();
+  await debugSignOut("logoutBtn clicked (manual)");
   location.reload();
 });
 
@@ -2983,7 +3034,7 @@ document.getElementById("btnConflictProceed").addEventListener("click", async ()
 document.getElementById("btnConflictCancel").addEventListener("click", async ()=>{
   __conflictProceed = null;
   closeSessionConflictModal();
-  await sb.auth.signOut();
+  await debugSignOut("session conflict modal: user clicked Cancel");
   document.getElementById("authMsg").textContent = "تم إلغاء تسجيل الدخول. إذا كنت مسجلاً دخولك بالفعل من جهاز آخر، أنهِ جلسة هذا المستخدم من ذلك الجهاز أولاً.";
 });
 document.getElementById("sessionConflictModal").addEventListener("click", (e)=>{
@@ -11957,27 +12008,19 @@ function setDateValue(id, value){
 /* =========================================================
    AUTO-LOGOUT PREVENTIONS & INITS
 ========================================================= */
-const APP_CLOSE_TS_KEY = "appClosedAt";
-const AUTO_LOGOUT_MS = 60 * 1000;
-
-function markAppClosedTimestamp(){
-  try{ localStorage.setItem(APP_CLOSE_TS_KEY, String(Date.now())); }catch(e){}
-}
-window.addEventListener("beforeunload", markAppClosedTimestamp);
-window.addEventListener("pagehide", markAppClosedTimestamp);
-
-async function checkAutoLogoutAfterClose(){
-  let ts = null;
-  try{ ts = localStorage.getItem(APP_CLOSE_TS_KEY); }catch(e){}
-  if(!ts) return false;
-  try{ localStorage.removeItem(APP_CLOSE_TS_KEY); }catch(e){}
-  const elapsed = Date.now() - parseInt(ts, 10);
-  if(isNaN(elapsed) || elapsed < AUTO_LOGOUT_MS) return false;
-  stopLoginHeartbeat();
-  await setMyLoginStatus(false);
-  await sb.auth.signOut();
-  return true;
-}
+/* ===== [أُزيلت] تسجيل خروج تلقائي عند "غلق المتصفح" =====
+   الميكانيزم ده كان بيعتمد على أحداث "beforeunload"/"pagehide" لتقدير هل
+   المتصفح اتقفل ولا لأ — وده غير موثوق فيه خالص فى المتصفحات الحديثة (خصوصًا
+   على الموبايل): نفس الحدث بيتفعّل لمجرد تصغير التطبيق، قفل الشاشة، أو نقل
+   الموبايل التاب للخلفية لتوفير الذاكرة، من غير أي غلق فعلي. وده اللي كان
+   سبب تسجيل الخروج المتكرر غير المبرر رغم رفع المهلة لـ5 دقايق.
+   الميزة الأساسية اللي كان الغرض منها ("تحرير اسم المستخدم بسرعة لجهاز
+   تاني") متحققة أصلاً من غير الحاجة لأي حاجة هنا: الدالة get_username_login_status
+   فى قاعدة البيانات بتعتبر أي جلسة "غير نشطة" تلقائيًا بعد 10 ثوانٍ من توقف
+   نبضات heartbeat (آخر last_seen)، فمفيش داعي لتقدير وقت الإغلاق من المتصفح
+   نفسه. الجلسة نفسها فى Supabase (localStorage) بتفضل زي ما هي لحد ما
+   المستخدم يضغط "تسجيل خروج" بنفسه، أو تنتهي صلاحيتها من إعدادات Supabase. */
+async function checkAutoLogoutAfterClose(){ return false; }
 
 /* ===== Auto-logout after 15 minutes of inactivity ===== */
 const INACTIVITY_LOGOUT_MS = 10 * 60 * 1000;
@@ -11996,7 +12039,7 @@ async function handleInactivityTimeout(){
     }catch(e){}
     await setMyLoginStatus(false);
     stopLoginHeartbeat();
-    await sb.auth.signOut();
+    await debugSignOut("handleInactivityTimeout: no activity for " + INACTIVITY_LOGOUT_MS + "ms");
     try{ toast("تم تسجيل الخروج تلقائيًا لعدم النشاط لمدة 10 دقائق","info"); }catch(e){}
   }catch(e){}
 }
@@ -12027,7 +12070,19 @@ resetInactivityTimer();
       await enterApp();
     }
   }
-  sb.auth.onAuthStateChange((event)=>{
+  sb.auth.onAuthStateChange((event, session)=>{
+    /* Log every auth event — not just SIGNED_OUT — because supabase-js can
+       call signOut() *internally* (e.g. a refresh-token request failing/
+       being rejected server-side) without going through debugSignOut()
+       above. If the next unwanted logout happens with NO matching
+       "[AUTO-LOGOUT DEBUG]" line just before it, this is almost certainly
+       the cause — check the Network tab for a failing call to
+       .../auth/v1/token?grant_type=refresh_token around that timestamp,
+       and check the Supabase Dashboard -> Authentication -> Sessions page
+       for a short "Time-box user sessions" / inactivity setting, which
+       enforces logout server-side regardless of anything in this file. */
+    console.warn("[AUTO-LOGOUT DEBUG] onAuthStateChange:", event, "| session expires_at:", session ? session.expires_at : null, "| time:", new Date().toISOString());
+    if(session) __cachedAccessToken = session.access_token;
     if(event === "SIGNED_OUT"){
       closeAllOpenModalsAndOverlays();
       document.getElementById("app").style.display = "none";
