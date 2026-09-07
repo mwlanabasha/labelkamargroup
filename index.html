@@ -503,6 +503,8 @@ input.material-issue-name{background:#fbe0e0 !important;}
 [data-theme="dark"] .field input,[data-theme="dark"] .field select,[data-theme="dark"] .field textarea{background:#111;color:#eee;}
 .field textarea{resize:vertical;min-height:50px;}
 .readonly-field input{background:#eee;color:#555;}
+#page-samples tr.smp-tested-row td{color:#1a9c4a;font-weight:700;}
+#page-samples .btn-row button.active{outline:2px solid var(--accent-pink);outline-offset:-2px;}
 
 /* ===== RECEIVING PAGE (تسجيل استلامات الخامات) — slightly more compact, field spacing unchanged ===== */
 #page-receiving .panel{padding:12px;}
@@ -536,6 +538,45 @@ input.material-issue-name{background:#fbe0e0 !important;}
 #arbPrefPage .field label{font-size:11px;}
 #arbPrefPage .field input,#arbPrefPage .field select,#arbPrefPage .field textarea{padding:5px 7px;font-size:12px;}
 #arbPrefPage .field textarea{min-height:38px;}
+
+/* ===== SAMPLES ROOM PAGE (غرفة العينات) — much tighter spacing, fields sized to their content ===== */
+#page-samples .panel,#smpAddModal .panel,#smpBulkModal .panel,#smpEditModal .panel,#smpDeptModal .panel{padding:8px 12px;margin-bottom:8px;}
+#page-samples .panel-title,#smpAddModal .modal-title,#smpBulkModal .modal-title,#smpEditModal .modal-title,#smpDeptModal .modal-title{font-size:13px;margin-bottom:5px;padding-bottom:5px;}
+#page-samples .mode-tabs{gap:6px;margin-bottom:6px;}
+#page-samples .mode-tabs button{padding:6px 12px;font-size:12px;}
+#page-samples .field-grid,#smpAddModal .field-grid,#smpBulkModal .field-grid,#smpEditModal .field-grid,#smpDeptModal .field-grid{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 14px;
+}
+#page-samples .field,#smpAddModal .field,#smpBulkModal .field,#smpEditModal .field,#smpDeptModal .field{gap:2px;flex:0 0 auto;}
+#page-samples .field-wide,#smpAddModal .field-wide,#smpEditModal .field-wide{flex:0 0 auto;width:260px;}
+#page-samples .field label,#smpAddModal .field label,#smpBulkModal .field label,#smpEditModal .field label,#smpDeptModal .field label{font-size:11px;white-space:nowrap;}
+#page-samples .field input,
+#smpAddModal .field input,
+#smpBulkModal .field input,
+#smpEditModal .field input,
+#smpDeptModal .field input{
+  padding:5px 7px;font-size:12px;width:150px;
+}
+#page-samples .field select,
+#smpAddModal .field select,
+#smpBulkModal .field select,
+#smpEditModal .field select,
+#smpDeptModal .field select{
+  padding:5px 7px;font-size:12px;width:auto;
+}
+#page-samples .field textarea,#smpAddModal .field textarea,#smpBulkModal .field textarea,#smpEditModal .field textarea{
+  padding:5px 7px;font-size:12px;min-height:32px;width:100%;min-width:220px;
+}
+#page-samples .btn-row,#smpAddModal .btn-row,#smpBulkModal .btn-row,#smpEditModal .btn-row,#smpDeptModal .btn-row{margin:6px 0;gap:6px;}
+#page-samples .btn,#smpAddModal .btn,#smpBulkModal .btn,#smpEditModal .btn,#smpDeptModal .btn{padding:7px 14px;font-size:12px;}
+#page-samples table,#smpAddModal table,#smpBulkModal table,#smpEditModal table{font-size:12px;}
+#page-samples thead th,#smpAddModal thead th,#smpBulkModal thead th,#smpEditModal thead th{padding:6px 5px;}
+#page-samples tbody td,#smpAddModal tbody td,#smpBulkModal tbody td,#smpEditModal tbody td{padding:5px;}
+#page-samples .date-range-group{padding:6px;}
+#page-samples .date-range-group>.grp-title{font-size:11px;margin-bottom:5px;}
+#page-samples .date-range-group .row{gap:6px;margin-bottom:4px;}
+#page-samples .date-range-group .row label{font-size:11px;min-width:42px;}
+#page-samples .total-bar{font-size:12px;padding:6px 10px;}
 
 /* ===== FORM VALIDATION INDICATORS ===== */
 .field input.touched-invalid,.field select.touched-invalid,.field textarea.touched-invalid{
@@ -692,6 +733,15 @@ tbody tr:hover{background:#ffe9f2;}
 .modal-x-close{position:absolute;top:12px;right:14px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid var(--danger,#e53935);cursor:pointer;font-size:16px;line-height:1;font-weight:900;color:var(--danger,#e53935);background:var(--bg-panel);box-shadow:0 1px 5px rgba(0,0,0,.18);transition:background .15s,color .15s,transform .1s;z-index:6;user-select:none;}
 .modal-x-close:hover{background:var(--danger,#e53935);color:#fff;}
 .modal-x-close:active{transform:scale(.92);}
+
+/* ===== BUTTON "OPENED" HIGHLIGHT (button stays highlighted while the
+   modal/panel it opened is open, and returns to its normal color once
+   that modal/panel closes) — applies to every button in every form ===== */
+.btn.btn-opened,.icon-btn.btn-opened,button.btn-opened{
+  filter:brightness(.78);
+  box-shadow:0 0 0 2px var(--bg-panel),0 0 0 4px var(--accent-pink);
+}
+.btn.ghost.btn-opened{background:var(--accent-pink);color:#fff;border-color:var(--accent-pink);}
 .modal-title{font-weight:900;font-size:15px;margin-bottom:12px;border-bottom:1px solid var(--border-thin);padding-bottom:8px;padding-right:46px;color:var(--accent-pink);}
 @keyframes modalIn{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:scale(1);}}
 .modal-box table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -1840,7 +1890,204 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <div class="btn-row"><button class="btn primary" id="btnSaveSettings">حفظ الإعدادات</button></div>
         </div>
       </div>
-      <div class="page" id="page-samples"><div class="panel">شاشة "غرفة العينات" — قيد الإنشاء فى المرحلة القادمة.</div></div>
+      <div class="page" id="page-samples">
+        <!-- ============= LIST / SCHEDULE MODES ============= -->
+        <div id="smpListModes">
+          <div class="btn-row">
+            <button class="btn primary" id="btnSmpOpenAdd">➕ اضافة عينة جديدة</button>
+            <button class="btn info" id="btnSmpOpenBulk">📅 تسجيل بيانات عينة أثناء فترة الصلاحية</button>
+            <button class="btn info" id="btnOpenSmpDeptAdmin">🏷️ الأقسام</button>
+            <button class="btn ghost" id="btnSmpGoSearch" style="margin-inline-start:auto;">🔍 البحث</button>
+            <button class="btn ghost" id="btnSmpGoReport">📊 تقرير عدد الفحوصات</button>
+          </div>
+
+          <div class="mode-tabs">
+            <button class="active" id="smpTabManual">فحص يدوى " بناءاً عن طلب "</button>
+            <button id="smpTabSchedule">فحص طبقاً لتوقيتات الفحص</button>
+          </div>
+
+          <!-- MANUAL TAB -->
+          <div id="smpManualPage">
+            <div class="panel">
+              <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end;">
+                <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpM_prod_filter"></div>
+                <div class="field" style="justify-content:flex-end;"><button class="btn primary" id="btnSmpManualSearch">بحث</button></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="table-wrap">
+                <table id="smpManualTable">
+                  <thead><tr>
+                    <th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
+                  </tr></thead>
+                  <tbody id="smpManualTableBody"></tbody>
+                </table>
+              </div>
+              <div class="total-bar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <span>عدد العينات = <span id="smpManualTotalCount">0</span></span>
+                <div id="smpManualPager" style="display:flex;align-items:center;gap:8px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCHEDULE TAB -->
+          <div id="smpSchedulePage" style="display:none;">
+            <div class="panel">
+              <div style="font-size:12px;opacity:.75;margin-bottom:6px;">
+                يعرض هذا القسم العينات المستحق فحصها اليوم (أو المتأخر فحصها) طبقاً لفترات الحفظ المعتمدة:
+                <b id="smpLifeStagesLabel"></b> يوماً من تاريخ الإنتاج.
+              </div>
+              <div class="btn-row"><button class="btn primary" id="btnSmpScheduleSearch">🔄 تحديث القائمة</button></div>
+            </div>
+            <div class="panel">
+              <div class="table-wrap">
+                <table id="smpScheduleTable">
+                  <thead><tr>
+                    <th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
+                  </tr></thead>
+                  <tbody id="smpScheduleTableBody"></tbody>
+                </table>
+              </div>
+              <div class="total-bar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <span>عدد العينات = <span id="smpScheduleTotalCount">0</span></span>
+                <div id="smpSchedulePager" style="display:flex;align-items:center;gap:8px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TEST PANEL (shared by both manual + schedule tabs) -->
+          <div class="panel" id="smpTestPanel" style="display:none;">
+            <div class="panel-title">إختبارات الفحص</div>
+            <div class="field-grid">
+              <div class="field"><label>🌸 الرائحة</label><select id="smpT_smell"><option value="" disabled selected hidden></option><option value="مقبول">مقبول</option><option value="غير مقبول">غير مقبول</option></select></div>
+              <div class="field"><label>◧ الشكل العام</label><select id="smpT_shape"><option value="" disabled selected hidden></option><option value="مقبول">مقبول</option><option value="غير مقبول">غير مقبول</option></select></div>
+              <div class="field"><label>✋ القوام</label><select id="smpT_texture"><option value="" disabled selected hidden></option><option value="مقبول">مقبول</option><option value="غير مقبول">غير مقبول</option></select></div>
+              <div class="field"><label>👅 الطعم</label><select id="smpT_taste"><option value="" disabled selected hidden></option><option value="مقبول">مقبول</option><option value="غير مقبول">غير مقبول</option></select></div>
+              <div class="field"><label>🎨 اللون</label><select id="smpT_color"><option value="" disabled selected hidden></option><option value="مقبول">مقبول</option><option value="غير مقبول">غير مقبول</option></select></div>
+              <div class="field field-wide"><label>ملاحظات</label><textarea id="smpT_notes" rows="1" style="min-height:0;height:38px;"></textarea></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnSmpSaveTest">💾 حفظ</button>
+              <button class="btn ghost" id="btnSmpCloseTestPanel">إغلاق</button>
+            </div>
+
+            <div class="panel-title" style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <span>عرض بيانات العينة المحددة</span>
+              <button class="btn info" id="btnSmpEditSelected" style="padding:5px 12px;font-size:12px;">✏️ تعديل بيانات العينة</button>
+            </div>
+            <div class="field-grid">
+              <div class="field readonly-field"><label>رقم العينة</label><input id="smpSel_no" readonly style="width:55px;"></div>
+              <div class="field readonly-field"><label>تاريخ سحب العينة</label><input id="smpSel_pull" readonly style="width:90px;"></div>
+              <div class="field readonly-field"><label>تاريخ إنتاج العينة</label><input id="smpSel_prod" readonly style="width:90px;"></div>
+              <div class="field readonly-field"><label>تاريخ إنتهاء العينة</label><input id="smpSel_exp" readonly></div>
+              <div class="field readonly-field"><label>القسم الإنتاجى</label><input id="smpSel_dept" readonly style="width:80px;"></div>
+              <div class="field field-wide readonly-field" style="width:320px;"><label>إسم المنتج</label><input id="smpSel_prodname" readonly style="width:100%;font-weight:700;"></div>
+              <div class="field readonly-field"><label>الوزن</label><input id="smpSel_weight" readonly style="width:55px;"></div>
+              <div class="field readonly-field"><label>رقم التشغيلة</label><input id="smpSel_batch" readonly></div>
+              <div class="field field-wide readonly-field"><label>ملاحظات</label><textarea id="smpSel_notes" readonly></textarea></div>
+            </div>
+
+            <div class="panel-title" style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <span>سجل الفحوصات السابقة لهذه العينة</span>
+              <span class="badge-count" id="smpTestHistoryCount" style="display:none;"></span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>تاريخ الفحص</th><th>الرائحة</th><th>الشكل العام</th><th>القوام</th><th>الطعم</th><th>اللون</th><th>ملاحظات</th><th>بواسطة</th></tr></thead>
+                <tbody id="smpTestHistoryBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============= SEARCH MODE ============= -->
+        <div id="smpSearchPage" style="display:none;">
+          <div class="panel">
+            <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+              <div class="date-range-group">
+                <div class="grp-title">تاريخ إنتاج العينة</div>
+                <div class="row"><label>من</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_prod_from"></div>
+                <div class="row"><label>إلى</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_prod_to"></div>
+              </div>
+              <div class="date-range-group">
+                <div class="grp-title">تاريخ سحب العينة</div>
+                <div class="row"><label>من</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_pull_from"></div>
+                <div class="row"><label>إلى</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_pull_to"></div>
+              </div>
+              <div class="date-range-group">
+                <div class="grp-title">تاريخ إنتهاء العينة</div>
+                <div class="row"><label>من</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_exp_from"></div>
+                <div class="row"><label>إلى</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_exp_to"></div>
+              </div>
+              <div class="date-range-group">
+                <div class="grp-title">تاريخ فحص العينات</div>
+                <div class="row"><label>من</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_test_from"></div>
+                <div class="row"><label>إلى</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpS_test_to"></div>
+              </div>
+              <div class="field"><label>القسم الإنتاجى</label><select id="smpS_department"><option value="">الكل</option></select></div>
+              <div class="field"><label>إسم المنتج</label><input id="smpS_product" placeholder="ابحث باسم المنتج..." style="width:200px;"></div>
+              <div class="field"><label>إتجاه الصنف</label><select id="smpS_direction"><option value="">الكل</option><option value="محلى">محلى</option><option value="تصدير">تصدير</option></select></div>
+              <div class="field"><label>الوزن</label><input id="smpS_weight"></div>
+              <div class="field"><label>رقم التشغيلة</label><input id="smpS_batch"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn ghost" id="smpS_filterUntested">عينات لم يتم فحصها</button>
+              <button class="btn ghost" id="smpS_filterTested">عينات تم فحصها</button>
+              <button class="btn ghost" id="smpS_filterAll">الكل</button>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnSmpSearchGo">بحث</button>
+              <button class="btn ghost" id="btnSmpSearchReset">تراجع</button>
+              <button class="btn ghost" id="btnSmpSearchBack">🔙 رجوع للقائمة</button>
+              <button class="btn info" id="btnSmpSearchExportExcel">📊 Excel</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table id="smpSearchTable">
+                <thead><tr>
+                  <th>رقم العينة</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                  <th>تاريخ الإنتاج</th><th>تاريخ الإنتهاء</th><th>الاتجاه</th><th>الوزن</th><th>رقم التشغيلة</th><th>تاريخ آخر فحص</th><th>إجراءات</th>
+                </tr></thead>
+                <tbody id="smpSearchTableBody"></tbody>
+              </table>
+            </div>
+            <div class="total-bar">عدد النتائج = <span id="smpSearchTotalCount">0</span></div>
+          </div>
+        </div>
+
+        <!-- ============= REPORT MODE (تقرير عدد الفحوصات لكل منتج) ============= -->
+        <div id="smpReportPage" style="display:none;">
+          <div class="panel">
+            <div class="panel-title">تقرير عدد مرات الفحص لكل منتج</div>
+            <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+              <div class="date-range-group">
+                <div class="grp-title">تاريخ الفحص</div>
+                <div class="row"><label>من</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpR_from"></div>
+                <div class="row"><label>إلى</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpR_to"></div>
+              </div>
+              <div class="field"><label>القسم الإنتاجى</label><select id="smpR_department"><option value="">الكل</option></select></div>
+              <div class="field"><label>إسم المنتج</label><input id="smpR_product" placeholder="ابحث باسم المنتج..." style="width:200px;"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="btnSmpReportGo">بحث</button>
+              <button class="btn ghost" id="btnSmpReportBack">🔙 رجوع للقائمة</button>
+              <button class="btn info" id="btnSmpReportExportExcel">📊 Excel</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table id="smpReportTable">
+                <thead><tr><th>إسم المنتج</th><th>القسم</th><th>عدد مرات الفحص</th><th>تاريخ أول فحص</th><th>تاريخ آخر فحص</th><th>إجراءات</th></tr></thead>
+                <tbody id="smpReportTableBody"></tbody>
+              </table>
+            </div>
+            <div class="total-bar">إجمالى عدد الفحوصات = <span id="smpReportTotalCount">0</span></div>
+          </div>
+        </div>
+      </div>
 
       <!-- USERS MANAGEMENT (admin only) -->
       <div class="page" id="page-users">
@@ -2515,6 +2762,110 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   </div>
 </div>
 
+<!-- samples room: add new sample (اضافة عينة جديدة) -->
+<div id="smpAddModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:1150px; width:96%; max-height:92vh; overflow:auto;">
+    <span class="modal-x-close" data-close-target="btnSmpAddClose" title="إغلاق">✕</span>
+    <button class="btn ghost" id="btnSmpAddClose" style="display:none;">إغلاق</button>
+    <div class="modal-title">اضافة عينة جديدة</div>
+    <div class="field-grid">
+      <div class="field readonly-field"><label>رقم العينة</label><input id="smpA_sample_no" readonly style="font-weight:800;"></div>
+      <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpA_production_date"></div>
+      <div class="field"><label>تاريخ إنتهاء العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpA_expiry_date"></div>
+      <div class="field"><label>تاريخ سحب العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpA_pull_date"></div>
+      <div class="field"><label>القسم الإنتاجى</label><select id="smpA_department"></select></div>
+      <div class="field"><label>إسم المنتج</label><input id="smpA_product_name" style="font-weight:700;width:220px;"></div>
+      <div class="field"><label>الوزن</label><input id="smpA_weight" type="number" step="any"></div>
+      <div class="field"><label>رقم التشغيلة</label><input id="smpA_batch"></div>
+      <div class="field"><label>إتجاه الصنف</label><select id="smpA_direction"><option value="" disabled selected hidden></option><option value="محلى">محلى</option><option value="تصدير">تصدير</option></select></div>
+      <div class="field field-wide"><label>ملاحظات</label><textarea id="smpA_notes" rows="1" style="min-height:0;height:38px;"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnSmpAddStage">اضافة</button>
+      <button class="btn ghost" id="btnSmpAddUndo">تراجع</button>
+      <button class="btn primary" id="btnSmpAddFinalSave" style="display:none;">📥 نقل إلى السجل (<span id="smpAddBatchCount">0</span>)</button>
+    </div>
+    <div style="font-size:12px;opacity:.75;margin:6px 0;">💡 انقر مرتين على أى سطر لتعديل بياناته قبل النقل إلى السجل</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>رقم العينة</th><th>ملاحظات</th><th>الوزن</th><th>الاتجاه</th><th>تاريخ الإنتاج</th><th>إسم المنتج</th><th>القسم</th><th>تاريخ السحب</th><th>إجراءات</th></tr></thead>
+        <tbody id="smpAddListBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- samples room: bulk registration during shelf-life period (تسجيل بيانات عينة أثناء فترة الصلاحية) -->
+<div id="smpBulkModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:900px; width:96%; max-height:92vh; overflow:auto;">
+    <span class="modal-x-close" data-close-target="btnSmpBulkClose" title="إغلاق">✕</span>
+    <div class="modal-title">تسجيل بيانات عينة أثناء فترة الصلاحية</div>
+    <div style="font-size:12px;opacity:.75;margin-bottom:8px;">
+      ملحوظة: مراحل الفحص (15، 30، 60...) بتتولد تلقائياً عند نقل أى عينة أساسية جديدة إلى السجل — استخدم هذه الشاشة فقط لتسجيل مراحل إضافية يدوياً لعينة أساسية قديمة (مسجّلة قبل هذا التحديث أو ناقصة مرحلة ما).<br>
+      اختر تاريخ إنتاج العينة الأساسية، ثم مرحلة الفحص (بالأيام) المطلوب تسجيل عينات لها — سيتم توليد رقم عينة جديد تلقائياً لكل عينة مُختارة.
+    </div>
+    <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end;">
+      <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpBulk_date"></div>
+      <div class="field" style="justify-content:flex-end;"><button class="btn primary" id="btnSmpBulkLoad">بحث</button></div>
+      <div class="field"><label>مرحلة الفحص</label><select id="smpBulk_stage"></select></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>رقم العينة</th><th>إسم المنتج</th><th>القسم</th></tr></thead>
+        <tbody id="smpBulkListBody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnSmpBulkRegister">تسجيل</button>
+      <button class="btn ghost" id="btnSmpBulkClose">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- samples room: edit an existing sample's data (from البحث or from the test panel) -->
+<div id="smpEditModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:1100px; width:96%; max-height:92vh; overflow:auto;">
+    <span class="modal-x-close" data-close-target="btnSmpEditClose" title="إغلاق">✕</span>
+    <button class="btn ghost" id="btnSmpEditClose" style="display:none;">إغلاق</button>
+    <div class="modal-title">تعديل بيانات العينة رقم <span id="smpEditSampleNoLabel"></span></div>
+    <div class="field-grid">
+      <div class="field readonly-field"><label>رقم العينة</label><input id="smpE_sample_no" readonly style="font-weight:800;"></div>
+      <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpE_production_date"></div>
+      <div class="field"><label>تاريخ إنتهاء العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpE_expiry_date"></div>
+      <div class="field"><label>تاريخ سحب العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpE_pull_date"></div>
+      <div class="field"><label>القسم الإنتاجى</label><select id="smpE_department"></select></div>
+      <div class="field"><label>إسم المنتج</label><input id="smpE_product_name" style="font-weight:700;width:220px;"></div>
+      <div class="field"><label>الوزن</label><input id="smpE_weight" type="number" step="any"></div>
+      <div class="field"><label>رقم التشغيلة</label><input id="smpE_batch"></div>
+      <div class="field"><label>إتجاه الصنف</label><select id="smpE_direction"><option value="" disabled selected hidden></option><option value="محلى">محلى</option><option value="تصدير">تصدير</option></select></div>
+      <div class="field field-wide"><label>ملاحظات</label><textarea id="smpE_notes" rows="1" style="min-height:0;height:38px;"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnSmpEditSave">💾 حفظ التعديلات</button>
+      <button class="btn ghost" id="btnSmpEditCancel">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- samples room: departments admin (الأقسام) -->
+<div id="smpDeptModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:1000px; width:96%;">
+    <span class="modal-x-close" data-close-target="btnSmpDeptClose" title="إغلاق">✕</span>
+    <div class="modal-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span>أقسام غرفة العينات</span>
+      <span class="badge-count" id="smpDeptStatsLabel" style="margin-inline-start:0;font-size:11px;">0</span>
+    </div>
+    <div class="field-grid" style="grid-template-columns:1fr auto; gap:10px 12px;">
+      <div class="field"><label style="font-size:12px;">إسم القسم الجديد</label><input id="smpDept_new_name" placeholder="اسم القسم" style="padding:7px 10px;font-size:13px;"></div>
+      <div class="field" style="justify-content:flex-end;"><button class="btn primary" id="btnSmpDeptAdd" style="white-space:nowrap;padding:7px 14px;font-size:12px;">اضافة</button></div>
+    </div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table><thead><tr><th class="name-col">اسم القسم</th><th class="action-col">الإجراءات</th></tr></thead><tbody id="smpDeptTableBody"></tbody></table>
+    </div>
+    <div class="btn-row"><button class="btn ghost" id="btnSmpDeptClose" style="padding:7px 14px;font-size:12px;">إغلاق</button></div>
+  </div>
+</div>
+
 <!-- lightbox for zooming into any image -->
 <div id="lightboxOverlay" class="lightbox-overlay">
   <img id="lightboxImg" src="">
@@ -2545,6 +2896,54 @@ document.querySelectorAll(".modal-x-close").forEach(x=>{
 // hide the second step's button too since one ✕ now covers both steps.
 const fpwClose2 = document.getElementById("btnFpwClose2");
 if(fpwClose2) fpwClose2.style.display = "none";
+
+/* =========================================================
+   GENERIC "BUTTON STAYS HIGHLIGHTED WHILE ITS MODAL IS OPEN"
+   ---------------------------------------------------------
+   Works automatically for every button in every form, with no
+   per-button wiring: we remember the last button the user
+   pressed, and watch every .modal-overlay for its "open" class
+   being added/removed (that's the single existing convention
+   every modal in the app already uses). When an overlay opens
+   shortly after a button press, that button gets the visual
+   "btn-opened" highlight; when the overlay closes again
+   (✕ icon, its own close/cancel button, ESC, etc. — whatever
+   already removes "open"), the highlight is removed and the
+   button returns to its normal color automatically.
+========================================================= */
+(function(){
+  let lastTrigger = null, lastTriggerTime = 0;
+  const modalTriggerMap = new WeakMap();
+
+  document.addEventListener("click", function(e){
+    const el = e.target.closest("button,.btn,.icon-btn");
+    if(el){ lastTrigger = el; lastTriggerTime = Date.now(); }
+  }, true);
+
+  const mo = new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      const el = m.target;
+      if(!(el instanceof Element) || !el.classList.contains("modal-overlay")) return;
+      const isOpen = el.classList.contains("open");
+      if(isOpen){
+        if(!modalTriggerMap.has(el) && lastTrigger && (Date.now() - lastTriggerTime) < 800){
+          modalTriggerMap.set(el, lastTrigger);
+          lastTrigger.classList.add("btn-opened");
+          lastTrigger = null;
+        }
+      } else {
+        const btn = modalTriggerMap.get(el);
+        if(btn){
+          btn.classList.remove("btn-opened");
+          modalTriggerMap.delete(el);
+        }
+      }
+    });
+  });
+  document.querySelectorAll(".modal-overlay").forEach(function(el){
+    mo.observe(el, {attributes:true, attributeFilter:["class"]});
+  });
+})();
 
 /* =========================================================
    SUPABASE CONFIG
@@ -3531,6 +3930,7 @@ function goto(page){
   if(page==="atp") initAtpPage();
   if(page==="arbitration") initArbitrationPage();
   if(page==="nonconformity") initNcPage();
+  if(page==="samples") initSamplesPage();
 }
 document.querySelectorAll(".nav-item").forEach(n=>n.addEventListener("click", ()=>goto(n.dataset.page)));
 document.querySelectorAll(".dash-card").forEach(c=>c.addEventListener("click", ()=>goto(c.dataset.goto)));
@@ -11865,6 +12265,813 @@ document.getElementById("tabNcNew").addEventListener("click", ()=>ncSetMode("new
 document.getElementById("tabNcSearch").addEventListener("click", ()=>ncSetMode("search"));
 
 /* =========================================================
+   SAMPLES ROOM (غرفة العينات) MODULE
+   Tables (create once in Supabase SQL editor — see samples_room_schema.sql):
+     samples_departments(id, name)
+     samples_room(id, sample_no, product_name, department, direction, weight,
+                  batch_no, production_date, pull_date, expiry_date, notes,
+                  is_base, life_days, retention_label, last_test_date,
+                  created_by, created_by_name, created_at, updated_at)
+     samples_room_tests(id, sample_id, sample_no, product_name, department,
+                  test_date, life_days, smell, general_shape, texture,
+                  taste, color, notes, created_by, created_by_name, created_at)
+
+   HOW IT WORKS
+   ------------
+   • "اضافة عينة جديدة" creates a BASE sample row (is_base = true) — one
+     physical retained sample pulled at production time.
+   • "تسجيل بيانات عينة أثناء فترة الصلاحية" takes all BASE rows produced
+     on a chosen date and clones them into new occurrence rows
+     (is_base = false) for a chosen shelf-life checkpoint (life_days),
+     each with its own auto-numbered رقم العينة. That's what feeds both
+     list tabs below.
+   • "فحص يدوى بناءاً عن طلب" shows every registered sample/occurrence,
+     filterable by production date — pick any row anytime to test it.
+   • "فحص طبقاً لتوقيتات الفحص" auto-computes which occurrences are due
+     TODAY (production_date + life_days <= today) and haven't been
+     tested yet — this mirrors the legacy day-checkpoint logic.
+   • Saving a test panel writes a row to samples_room_tests (full history
+     kept per sample) and stamps samples_room.last_test_date so the row
+     turns green in the lists once تم فحصها.
+   • The "تقرير عدد الفحوصات" tab counts samples_room_tests rows grouped
+     by product/department — that's the "عدد الفحص الذى تم على المنتج" report.
+
+   ▶️ EASY TO CUSTOMIZE: SMP_LIFE_STAGES below is the ONLY place that
+      defines the shelf-life testing checkpoints (بالأيام من تاريخ
+      الإنتاج). Add/remove/edit numbers here and every screen (bulk
+      registration dropdown + the schedule tab + its labels) updates
+      automatically — no other code needs to change.
+========================================================= */
+const SMP_LIFE_STAGES = [15,30,60,120,180,240,300,540]; // أيام — عدّل هذه القائمة فقط لتغيير فترات الفحص
+const SAMPLES_TABLE = "samples_room";
+const SAMPLES_TESTS_TABLE = "samples_room_tests";
+const SAMPLES_DEPTS_TABLE = "samples_departments";
+
+function smpLifeLabel(days){
+  const n = Number(days)||0;
+  return n<=0 ? "عينات اليوم" : `عينات مر عليها ${n} يوم`;
+}
+function smpAddDays(iso, days){
+  if(!iso) return "";
+  // بناء وحساب التاريخ يدوياً من الأجزاء (بدون كائن Date مرتبط بمنطقة زمنية)
+  // لتفادي فرق يوم كامل كان يحدث سابقاً بسبب استخدام toISOString (بتوقيت UTC)
+  // على تاريخ محلي، ما قد يُنقص/يزيد اليوم المحسوب حسب فارق التوقيت المحلى.
+  const [y,m,d] = iso.split("-").map(Number);
+  const base = Date.UTC(y, m-1, d) + Number(days||0)*86400000;
+  const dt = new Date(base);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth()+1).padStart(2,"0");
+  const dd = String(dt.getUTCDate()).padStart(2,"0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/* ---------- departments (managed list, reused across all samples forms) ---------- */
+let smpDeptCache = [];
+async function loadSmpDeptCache(force){
+  const value = await refCacheLoad("smp_depts", async ()=>{
+    const { data, error } = await sb.from(SAMPLES_DEPTS_TABLE).select("*").order("name");
+    if(error) console.error("loadSmpDeptCache error:", error);
+    smpDeptCache = error ? [] : (data || []);
+    return smpDeptCache;
+  }, force);
+  if(value) smpDeptCache = value;
+}
+function fillSmpDeptSelects(){
+  [["smpA_department",false],["smpS_department",true],["smpR_department",true]].forEach(([id,isFilter])=>{
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    const cur = sel.value;
+    const placeholder = isFilter ? `<option value="">الكل</option>` : `<option value="" disabled selected hidden></option>`;
+    sel.innerHTML = placeholder + smpDeptCache.map(d=>`<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join("");
+    if(cur && [...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  });
+}
+function renderSmpDeptTable(){
+  document.getElementById("smpDeptStatsLabel").textContent = `${smpDeptCache.length}`;
+  const body = document.getElementById("smpDeptTableBody");
+  body.innerHTML = smpDeptCache.length===0
+    ? `<tr><td colspan="2" style="text-align:center;opacity:.7;">لا توجد أقسام مسجلة</td></tr>`
+    : smpDeptCache.map(d=>`
+      <tr><td class="name-col">${escapeHtml(d.name)}</td>
+      <td class="action-col">
+        <button title="تعديل" data-click="editSmpDept" data-args='${escapeHtml(JSON.stringify([d.id]))}'>✏️</button>
+        <button title="حذف" data-click="deleteSmpDept" data-args='${escapeHtml(JSON.stringify([d.id]))}'>🗑️</button>
+      </td></tr>`).join("");
+}
+async function openSmpDeptAdmin(){
+  document.getElementById("smpDept_new_name").value = "";
+  await loadSmpDeptCache();
+  renderSmpDeptTable();
+  document.getElementById("smpDeptModal").classList.add("open");
+}
+document.getElementById("btnOpenSmpDeptAdmin").addEventListener("click", openSmpDeptAdmin);
+document.getElementById("btnSmpDeptClose").addEventListener("click", ()=>document.getElementById("smpDeptModal").classList.remove("open"));
+document.getElementById("smpDeptModal").addEventListener("click", (e)=>{ if(false && e.target.id==="smpDeptModal") document.getElementById("smpDeptModal").classList.remove("open"); });
+document.getElementById("btnSmpDeptAdd").addEventListener("click", async ()=>{
+  const input = document.getElementById("smpDept_new_name");
+  const name = input.value.trim();
+  if(!name){ toast("اكتب اسم القسم","warning"); return; }
+  if(smpDeptCache.some(d=>d.name===name)){ toast("هذا القسم مسجل بالفعل","warning"); return; }
+  const { error } = await sb.from(SAMPLES_DEPTS_TABLE).insert({ name });
+  if(error){ toast("تعذر الإضافة","error"); return; }
+  input.value = "";
+  await loadSmpDeptCache(true); renderSmpDeptTable(); fillSmpDeptSelects();
+  toast("تمت الإضافة","success");
+});
+window.editSmpDept = async function(id){
+  const d = smpDeptCache.find(x=>x.id===id); if(!d) return;
+  const val = prompt("تعديل اسم القسم:", d.name);
+  if(val===null) return;
+  const trimmed = val.trim();
+  if(!trimmed){ toast("الاسم لا يمكن أن يكون فارغاً","warning"); return; }
+  const { error } = await sb.from(SAMPLES_DEPTS_TABLE).update({ name: trimmed }).eq("id", id);
+  if(error){ toast("تعذر التعديل","error"); return; }
+  await loadSmpDeptCache(true); renderSmpDeptTable(); fillSmpDeptSelects();
+  toast("تم التعديل","success");
+};
+window.deleteSmpDept = async function(id){
+  const d = smpDeptCache.find(x=>x.id===id); if(!d) return;
+  if(!confirm(`هل تريد حذف "${d.name}"؟`)) return;
+  const { error } = await sb.from(SAMPLES_DEPTS_TABLE).delete().eq("id", id);
+  if(error){ toast("تعذر الحذف","error"); return; }
+  await loadSmpDeptCache(true); renderSmpDeptTable(); fillSmpDeptSelects();
+  toast("تم الحذف","success");
+};
+
+/* ---------- auto-numbering (رقم العينة) ---------- */
+let smpNextSampleNoCache = null;
+async function smpGetNextSampleNo(force){
+  if(smpNextSampleNoCache!==null && !force) return smpNextSampleNoCache;
+  const { data, error } = await sb.from(SAMPLES_TABLE).select("sample_no").order("sample_no",{ascending:false}).limit(1);
+  if(error){ console.error("smpGetNextSampleNo error:", error); smpNextSampleNoCache = 1; return 1; }
+  const max = (data && data[0] && data[0].sample_no) ? Number(data[0].sample_no) : 0;
+  smpNextSampleNoCache = max+1;
+  return smpNextSampleNoCache;
+}
+
+/* ---------- add new sample (اضافة عينة جديدة) ----------
+   Samples are staged locally (smpAddBatch) as they're added with the
+   "اضافة" button, shown in the table below — nothing is saved yet.
+   Double-click a staged row to edit it before committing. Only
+   "📥 نقل إلى السجل" actually writes the batch to the database (samples_room)
+   and refreshes whichever list/"السجل" is currently visible. */
+let smpAddBatch = [];
+let smpAddEditingIndex = null;
+function smpSetAddButtonMode(editing){
+  const btn = document.getElementById("btnSmpAddStage");
+  btn.textContent = editing ? "حفظ التعديل" : "اضافة";
+  btn.classList.toggle("info", !!editing);
+}
+function smpClearAddForm(){
+  document.getElementById("smpA_product_name").value = "";
+  document.getElementById("smpA_notes").value = "";
+  document.getElementById("smpA_weight").value = "";
+  document.getElementById("smpA_batch").value = "";
+  smpAddEditingIndex = null;
+  smpSetAddButtonMode(false);
+}
+document.getElementById("btnSmpAddUndo").addEventListener("click", smpClearAddForm);
+function smpRenderAddBatchTable(){
+  document.getElementById("smpAddBatchCount").textContent = smpAddBatch.length;
+  document.getElementById("btnSmpAddFinalSave").style.display = smpAddBatch.length>0 ? "" : "none";
+  const body = document.getElementById("smpAddListBody");
+  body.innerHTML = smpAddBatch.length===0 ? `<tr><td colspan="9" style="text-align:center;opacity:.7;">لا توجد عينات مضافة بعد</td></tr>`
+    : smpAddBatch.map((r,i)=>`
+    <tr data-dblclick="smpEditAddBatchRow" data-args='${escapeHtml(JSON.stringify([i]))}' title="انقر مرتين للتعديل" style="cursor:pointer;">
+      <td>${r.sample_no}</td><td>${escapeHtml(r.notes||"")}</td><td>${r.weight??""}</td>
+      <td>${escapeHtml(r.direction||"")}</td><td>${formatDateDisplay(r.production_date)}</td>
+      <td>${escapeHtml(r.product_name||"")}</td><td>${escapeHtml(r.department||"")}</td>
+      <td>${formatDateDisplay(r.pull_date)}</td>
+      <td class="row-actions">
+        <button title="تعديل" data-click="smpEditAddBatchRow" data-stop="1" data-args='${escapeHtml(JSON.stringify([i]))}'>✏️</button>
+        <button title="حذف" data-click="smpRemoveAddBatchRow" data-stop="1" data-args='${escapeHtml(JSON.stringify([i]))}'>🗑️</button>
+      </td>
+    </tr>`).join("");
+}
+window.smpEditAddBatchRow = function(i){
+  const r = smpAddBatch[i]; if(!r) return;
+  document.getElementById("smpA_sample_no").value = r.sample_no;
+  setDateValue("smpA_production_date", r.production_date || "");
+  setDateValue("smpA_expiry_date", r.expiry_date || "");
+  setDateValue("smpA_pull_date", r.pull_date || "");
+  document.getElementById("smpA_department").value = r.department || "";
+  document.getElementById("smpA_direction").value = r.direction || "";
+  document.getElementById("smpA_weight").value = r.weight ?? "";
+  document.getElementById("smpA_batch").value = r.batch_no || "";
+  document.getElementById("smpA_product_name").value = r.product_name || "";
+  document.getElementById("smpA_notes").value = r.notes || "";
+  smpAddEditingIndex = i;
+  smpSetAddButtonMode(true);
+  toast("عدّل بيانات السطر ثم اضغط (حفظ التعديل)","info");
+};
+window.smpRemoveAddBatchRow = function(i){
+  if(smpAddEditingIndex === i) smpClearAddForm();
+  smpAddBatch.splice(i,1);
+  smpRenderAddBatchTable();
+};
+async function openSmpAddModal(){
+  await loadSmpDeptCache(); fillSmpDeptSelects();
+  setDateValue("smpA_production_date","");
+  setDateValue("smpA_expiry_date","");
+  setDateValue("smpA_pull_date", todayStr());
+  document.getElementById("smpA_department").selectedIndex = 0;
+  document.getElementById("smpA_direction").selectedIndex = 0;
+  smpAddBatch = [];
+  smpClearAddForm();
+  document.getElementById("smpA_sample_no").value = await smpGetNextSampleNo(true);
+  smpRenderAddBatchTable();
+  document.getElementById("smpAddModal").classList.add("open");
+}
+document.getElementById("btnSmpOpenAdd").addEventListener("click", openSmpAddModal);
+document.getElementById("btnSmpAddClose").addEventListener("click", ()=>document.getElementById("smpAddModal").classList.remove("open"));
+document.getElementById("smpAddModal").addEventListener("click", (e)=>{ if(false && e.target.id==="smpAddModal") document.getElementById("smpAddModal").classList.remove("open"); });
+
+document.getElementById("btnSmpAddStage").addEventListener("click", ()=>{
+  const production_date = document.getElementById("smpA_production_date").value;
+  const expiry_date = document.getElementById("smpA_expiry_date").value;
+  const pull_date = document.getElementById("smpA_pull_date").value;
+  const department = document.getElementById("smpA_department").value;
+  const direction = document.getElementById("smpA_direction").value;
+  const weight = document.getElementById("smpA_weight").value.trim();
+  const batch_no = document.getElementById("smpA_batch").value.trim();
+  const product_name = document.getElementById("smpA_product_name").value.trim();
+  const notes = document.getElementById("smpA_notes").value.trim();
+  if(!product_name){ toast("اكتب اسم المنتج","warning"); return; }
+  if(!production_date){ toast("اختر تاريخ إنتاج العينة","warning"); return; }
+  if(!department){ toast("اختر القسم الإنتاجى","warning"); return; }
+  if(!direction){ toast("اختر اتجاه الصنف","warning"); return; }
+  const entry = {
+    sample_no: Number(document.getElementById("smpA_sample_no").value),
+    product_name, department, direction,
+    weight: weight ? Number(weight) : null, batch_no,
+    production_date, expiry_date: expiry_date || null, pull_date: pull_date || null,
+    notes, is_base: true,
+    created_by: myProfile ? myProfile.id : null, created_by_name: myProfile ? myProfile.username : null
+  };
+  if(smpAddEditingIndex !== null){
+    smpAddBatch[smpAddEditingIndex] = entry;
+    toast("تم تحديث بيانات السطر","success");
+  } else {
+    smpAddBatch.push(entry);
+    smpNextSampleNoCache = entry.sample_no + 1;
+    toast("تمت إضافة السطر إلى القائمة، اضغط (نقل إلى السجل) للحفظ النهائى","success");
+  }
+  smpRenderAddBatchTable();
+  smpClearAddForm();
+  document.getElementById("smpA_sample_no").value = smpNextSampleNoCache;
+});
+
+bindBusyClick("btnSmpAddFinalSave", async ()=>{
+  if(smpAddBatch.length===0){ toast("لا توجد عينات لنقلها","warning"); return; }
+  const baseRows = smpAddBatch;
+  // توليد كل مراحل الفحص (SMP_LIFE_STAGES) تلقائياً لكل عينة أساسية يتم نقلها،
+  // بدل التسجيل اليدوى المنفصل لكل مرحلة عبر شاشة "تسجيل بيانات عينة أثناء فترة الصلاحية"
+  let nextNo = smpNextSampleNoCache;
+  const checkpointRows = [];
+  baseRows.forEach(b=>{
+    SMP_LIFE_STAGES.forEach(stage=>{
+      checkpointRows.push({
+        sample_no: nextNo++, product_name: b.product_name, department: b.department, direction: b.direction,
+        weight: b.weight, batch_no: b.batch_no, production_date: b.production_date,
+        expiry_date: b.expiry_date, pull_date: b.pull_date, notes: b.notes,
+        is_base: false, life_days: stage, retention_label: smpLifeLabel(stage),
+        created_by: b.created_by, created_by_name: b.created_by_name
+      });
+    });
+  });
+  const { error } = await sb.from(SAMPLES_TABLE).insert([...baseRows, ...checkpointRows]);
+  if(error){ toast("تعذر النقل إلى السجل: "+(error.message||error.code||"خطأ"),"error"); return; }
+  smpNextSampleNoCache = nextNo;
+  toast(`تم نقل ${baseRows.length} عينة إلى السجل، وتوليد ${checkpointRows.length} عينة لمراحل الفحص تلقائياً`,"success");
+  // انقل مباشرة، أفرغ بيانات العينة المضافة (القائمة والنموذج)، وابق النافذة
+  // مفتوحة جاهزة لإضافة عينات جديدة بدون الحاجة لإعادة فتحها
+  smpAddBatch = [];
+  smpAddEditingIndex = null;
+  smpClearAddForm();
+  document.getElementById("smpA_sample_no").value = smpNextSampleNoCache;
+  smpRenderAddBatchTable();
+  if(document.getElementById("smpManualPage").style.display !== "none") runSmpManualSearch();
+  if(document.getElementById("smpSchedulePage").style.display !== "none") runSmpScheduleSearch();
+});
+
+/* ---------- bulk registration during shelf-life period (تسجيل بيانات عينة أثناء فترة الصلاحية) ---------- */
+let smpBulkCandidates = [];
+async function openSmpBulkModal(){
+  setDateValue("smpBulk_date","");
+  document.getElementById("smpBulk_stage").innerHTML = SMP_LIFE_STAGES.map(d=>`<option value="${d}">${d} يوم</option>`).join("");
+  document.getElementById("smpBulkListBody").innerHTML = `<tr><td colspan="4" style="text-align:center;opacity:.7;">اختر تاريخ إنتاج ثم اضغط بحث</td></tr>`;
+  smpBulkCandidates = [];
+  document.getElementById("smpBulkModal").classList.add("open");
+}
+document.getElementById("btnSmpOpenBulk").addEventListener("click", openSmpBulkModal);
+document.getElementById("btnSmpBulkClose").addEventListener("click", ()=>document.getElementById("smpBulkModal").classList.remove("open"));
+document.getElementById("smpBulkModal").addEventListener("click", (e)=>{ if(false && e.target.id==="smpBulkModal") document.getElementById("smpBulkModal").classList.remove("open"); });
+
+bindBusyClick("btnSmpBulkLoad", async ()=>{
+  const d = document.getElementById("smpBulk_date").value;
+  if(!d){ toast("اختر تاريخ إنتاج العينة أولاً","warning"); return; }
+  const { data, error } = await sb.from(SAMPLES_TABLE).select("*").eq("production_date", d).eq("is_base", true).order("sample_no");
+  if(error){ toast("تعذر البحث","error"); return; }
+  smpBulkCandidates = data || [];
+  const body = document.getElementById("smpBulkListBody");
+  body.innerHTML = smpBulkCandidates.length===0
+    ? `<tr><td colspan="4" style="text-align:center;opacity:.7;">لا توجد عينات أساسية مسجلة بهذا التاريخ</td></tr>`
+    : smpBulkCandidates.map(r=>`
+      <tr>
+        <td><input type="checkbox" class="smp-bulk-chk" data-id="${r.id}" checked></td>
+        <td>${r.sample_no}</td><td>${escapeHtml(r.product_name||"")}</td><td>${escapeHtml(r.department||"")}</td>
+      </tr>`).join("");
+});
+
+bindBusyClick("btnSmpBulkRegister", async ()=>{
+  const stage = Number(document.getElementById("smpBulk_stage").value);
+  const checked = [...document.querySelectorAll(".smp-bulk-chk:checked")].map(c=>c.dataset.id);
+  if(checked.length===0){ toast("اختر عينة واحدة على الأقل","warning"); return; }
+  const rows = smpBulkCandidates.filter(r=>checked.includes(r.id));
+  let nextNo = await smpGetNextSampleNo(true);
+  const today = todayStr();
+  const inserts = rows.map(r=>({
+    sample_no: nextNo++, product_name: r.product_name, department: r.department, direction: r.direction,
+    weight: r.weight, batch_no: r.batch_no, production_date: r.production_date,
+    expiry_date: r.expiry_date, pull_date: today, notes: r.notes,
+    is_base: false, life_days: stage, retention_label: smpLifeLabel(stage),
+    created_by: myProfile ? myProfile.id : null, created_by_name: myProfile ? myProfile.username : null
+  }));
+  const { error } = await sb.from(SAMPLES_TABLE).insert(inserts);
+  if(error){ toast("تعذر التسجيل: "+(error.message||error.code||"خطأ"),"error"); return; }
+  smpNextSampleNoCache = nextNo;
+  toast(`تم تسجيل ${inserts.length} عينة لمرحلة ${stage} يوم`,"success");
+  document.getElementById("smpBulkModal").classList.remove("open");
+  if(document.getElementById("smpManualPage").style.display !== "none") runSmpManualSearch();
+  if(document.getElementById("smpSchedulePage").style.display !== "none") runSmpScheduleSearch();
+});
+
+/* ---------- list row rendering (shared by manual + schedule tabs), with pagination so each page fills the screen with no scrolling ---------- */
+function smpRowHtml(r){
+  const tested = !!r.last_test_date;
+  return `<tr id="smpRow_${r.id}" class="${tested?'smp-tested-row':''}" data-click="smpSelectSample" data-args='${escapeHtml(JSON.stringify([r.id]))}' style="cursor:pointer;">
+    <td>${escapeHtml(r.retention_label||"")}</td>
+    <td>${escapeHtml(r.department||"")}</td>
+    <td>${formatDateDisplay(r.pull_date)}</td>
+    <td>${escapeHtml(r.product_name||"")}</td>
+    <td>${formatDateDisplay(r.production_date)}</td>
+    <td>${escapeHtml(r.direction||"")}</td>
+    <td>${r.weight??""}</td>
+  </tr>`;
+}
+
+/* compute how many table rows fit in the remaining visible viewport (below the table's header) so a page never needs scrolling */
+function smpComputeRowsPerPage(tableWrapId){
+  const wrap = document.getElementById(tableWrapId);
+  if(!wrap) return 8;
+  const rect = wrap.getBoundingClientRect();
+  const reserveBelow = 70; // room for the total-bar/pager under the table
+  const available = window.innerHeight - rect.top - reserveBelow;
+  const headerHeight = 34;
+  const rowHeight = 32; // matches the compact #page-samples table row sizing
+  const rows = Math.floor((available - headerHeight) / rowHeight);
+  return Math.max(rows, 5);
+}
+
+function smpRenderPager(containerId, page, totalPages, goFn){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(totalPages <= 1){ el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <button class="btn ghost" style="padding:5px 10px;font-size:12px;" ${page<=1?"disabled":""} data-click="${goFn}" data-args='${JSON.stringify([Math.max(1,page-1)])}'>◀ السابق</button>
+    <span style="font-size:12px;">صفحة ${page} من ${totalPages}</span>
+    <button class="btn ghost" style="padding:5px 10px;font-size:12px;" ${page>=totalPages?"disabled":""} data-click="${goFn}" data-args='${JSON.stringify([Math.min(totalPages,page+1)])}'>التالى ▶</button>
+  `;
+}
+
+let smpManualAllRows = [];
+let smpManualCurPage = 1;
+function smpRenderManualPage(){
+  const perPage = smpComputeRowsPerPage("smpManualTable");
+  const totalPages = Math.max(1, Math.ceil(smpManualAllRows.length / perPage));
+  if(smpManualCurPage > totalPages) smpManualCurPage = totalPages;
+  if(smpManualCurPage < 1) smpManualCurPage = 1;
+  const start = (smpManualCurPage-1)*perPage;
+  const pageRows = smpManualAllRows.slice(start, start+perPage);
+  document.getElementById("smpManualTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="7" style="text-align:center;opacity:.7;">لا توجد عينات</td></tr>`;
+  smpRenderPager("smpManualPager", smpManualCurPage, totalPages, "smpManualGoPage");
+}
+window.smpManualGoPage = function(p){ smpManualCurPage = p; smpRenderManualPage(); };
+
+async function runSmpManualSearch(){
+  const d = document.getElementById("smpM_prod_filter").value;
+  let q = sb.from(SAMPLES_TABLE).select("*").order("production_date",{ascending:false}).order("sample_no",{ascending:false}).limit(500);
+  if(d) q = q.eq("production_date", d);
+  const { data, error } = await q;
+  if(error){ document.getElementById("smpManualTableBody").innerHTML = `<tr><td colspan="7">تعذر التحميل</td></tr>`; return; }
+  smpManualAllRows = data||[];
+  smpManualCurPage = 1;
+  document.getElementById("smpManualTotalCount").textContent = smpManualAllRows.length;
+  smpRenderManualPage();
+}
+document.getElementById("btnSmpManualSearch").addEventListener("click", runSmpManualSearch);
+
+let smpScheduleAllRows = [];
+let smpScheduleCurPage = 1;
+function smpRenderSchedulePage(){
+  const perPage = smpComputeRowsPerPage("smpScheduleTable");
+  const totalPages = Math.max(1, Math.ceil(smpScheduleAllRows.length / perPage));
+  if(smpScheduleCurPage > totalPages) smpScheduleCurPage = totalPages;
+  if(smpScheduleCurPage < 1) smpScheduleCurPage = 1;
+  const start = (smpScheduleCurPage-1)*perPage;
+  const pageRows = smpScheduleAllRows.slice(start, start+perPage);
+  document.getElementById("smpScheduleTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="7" style="text-align:center;opacity:.7;">لا توجد عينات مستحقة الفحص حالياً</td></tr>`;
+  smpRenderPager("smpSchedulePager", smpScheduleCurPage, totalPages, "smpScheduleGoPage");
+}
+window.smpScheduleGoPage = function(p){ smpScheduleCurPage = p; smpRenderSchedulePage(); };
+
+async function runSmpScheduleSearch(){
+  const today = todayStr();
+  const { data, error } = await sb.from(SAMPLES_TABLE).select("*").eq("is_base", false).is("last_test_date", null).order("production_date");
+  if(error){ document.getElementById("smpScheduleTableBody").innerHTML = `<tr><td colspan="7">تعذر التحميل</td></tr>`; return; }
+  const due = (data||[]).filter(r=>{
+    if(!r.production_date || !r.life_days) return false;
+    return smpAddDays(r.production_date, r.life_days) <= today;
+  }).sort((a,b)=> (a.life_days-b.life_days) || (a.production_date<b.production_date?-1:1));
+  smpScheduleAllRows = due;
+  smpScheduleCurPage = 1;
+  document.getElementById("smpScheduleTotalCount").textContent = due.length;
+  smpRenderSchedulePage();
+}
+document.getElementById("btnSmpScheduleSearch").addEventListener("click", runSmpScheduleSearch);
+
+/* re-fit rows-per-page on viewport resize so pages keep filling the screen without a scrollbar */
+window.addEventListener("resize", debounce(()=>{
+  if(document.getElementById("smpManualPage").style.display !== "none" && smpManualAllRows.length) smpRenderManualPage();
+  if(document.getElementById("smpSchedulePage").style.display !== "none" && smpScheduleAllRows.length) smpRenderSchedulePage();
+}, 250));
+
+function smpSetListMode(mode){
+  document.getElementById("smpManualPage").style.display = mode==="manual" ? "" : "none";
+  document.getElementById("smpSchedulePage").style.display = mode==="schedule" ? "" : "none";
+  document.getElementById("smpTabManual").classList.toggle("active", mode==="manual");
+  document.getElementById("smpTabSchedule").classList.toggle("active", mode==="schedule");
+  smpCloseTestPanel();
+  if(mode==="manual") runSmpManualSearch(); else runSmpScheduleSearch();
+}
+document.getElementById("smpTabManual").addEventListener("click", ()=>smpSetListMode("manual"));
+document.getElementById("smpTabSchedule").addEventListener("click", ()=>smpSetListMode("schedule"));
+
+/* ---------- test panel (إختبارات الفحص) ---------- */
+function smpHideOtherRows(selectedId){
+  const activeBodyId = document.getElementById("smpManualPage").style.display !== "none" ? "smpManualTableBody" : "smpScheduleTableBody";
+  const body = document.getElementById(activeBodyId);
+  if(!body) return;
+  Array.from(body.children).forEach(tr=>{
+    tr.style.display = (tr.id === `smpRow_${selectedId}`) ? "" : "none";
+  });
+}
+function smpShowAllRows(){
+  ["smpManualTableBody","smpScheduleTableBody"].forEach(bid=>{
+    const body = document.getElementById(bid);
+    if(!body) return;
+    Array.from(body.children).forEach(tr=>{ tr.style.display = ""; });
+  });
+}
+let smpSelectedSample = null;
+window.smpSelectSample = async function(id){
+  const { data, error } = await sb.from(SAMPLES_TABLE).select("*").eq("id", id).single();
+  if(error || !data){ toast("تعذر تحميل بيانات العينة","error"); return; }
+  smpSelectedSample = data;
+  smpHideOtherRows(id);
+  document.getElementById("smpSel_no").value = data.sample_no ?? "";
+  document.getElementById("smpSel_pull").value = formatDateDisplay(data.pull_date);
+  document.getElementById("smpSel_prod").value = formatDateDisplay(data.production_date);
+  document.getElementById("smpSel_exp").value = formatDateDisplay(data.expiry_date);
+  document.getElementById("smpSel_dept").value = data.department || "";
+  document.getElementById("smpSel_prodname").value = data.product_name || "";
+  document.getElementById("smpSel_weight").value = data.weight ?? "";
+  document.getElementById("smpSel_batch").value = data.batch_no || "";
+  document.getElementById("smpSel_notes").value = data.notes || "";
+  ["smpT_smell","smpT_shape","smpT_texture","smpT_taste","smpT_color","smpT_notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("smpTestPanel").style.display = "";
+  await smpLoadTestHistory(id, data.product_name, data.department);
+  document.getElementById("smpTestPanel").scrollIntoView({behavior:"smooth", block:"start"});
+};
+function smpCloseTestPanel(){
+  document.getElementById("smpTestPanel").style.display = "none";
+  smpSelectedSample = null;
+  smpShowAllRows();
+}
+document.getElementById("btnSmpCloseTestPanel").addEventListener("click", smpCloseTestPanel);
+
+async function smpLoadTestHistory(sampleId, productName, department){
+  const { data, error } = await sb.from(SAMPLES_TESTS_TABLE).select("*").eq("sample_id", sampleId).order("test_date",{ascending:false});
+  const body = document.getElementById("smpTestHistoryBody");
+  const countBadge = document.getElementById("smpTestHistoryCount");
+  if(error){ body.innerHTML = `<tr><td colspan="8">تعذر التحميل</td></tr>`; countBadge.style.display="none"; return; }
+  body.innerHTML = (data||[]).length===0 ? `<tr><td colspan="8" style="text-align:center;opacity:.7;">لا يوجد فحوصات سابقة</td></tr>`
+    : (data||[]).map(t=>`
+    <tr><td>${formatDateDisplay(t.test_date)}</td><td>${escapeHtml(t.smell||"")}</td><td>${escapeHtml(t.general_shape||"")}</td>
+    <td>${escapeHtml(t.texture||"")}</td><td>${escapeHtml(t.taste||"")}</td><td>${escapeHtml(t.color||"")}</td>
+    <td>${escapeHtml(t.notes||"")}</td><td>${escapeHtml(t.created_by_name||"")}</td></tr>`).join("");
+  // cumulative count: total tests done on this product across ALL its samples (all retention stages), not just this one
+  if(!productName){ countBadge.style.display="none"; return; }
+  let cq = sb.from(SAMPLES_TESTS_TABLE).select("*", { count:"exact", head:true }).eq("product_name", productName);
+  cq = department ? cq.eq("department", department) : cq.is("department", null);
+  const { count: totalCount, error: cErr } = await cq;
+  if(cErr || !totalCount){ countBadge.style.display = "none"; return; }
+  countBadge.textContent = `عدد الفحوصات: ${totalCount}`;
+  countBadge.style.display = "";
+}
+
+bindBusyClick("btnSmpSaveTest", async ()=>{
+  if(!smpSelectedSample){ toast("اختر عينة أولاً","warning"); return; }
+  const smell = document.getElementById("smpT_smell").value.trim();
+  const shape = document.getElementById("smpT_shape").value.trim();
+  const texture = document.getElementById("smpT_texture").value.trim();
+  const taste = document.getElementById("smpT_taste").value.trim();
+  const color = document.getElementById("smpT_color").value.trim();
+  const notes = document.getElementById("smpT_notes").value.trim();
+  if(!smell && !shape && !texture && !taste && !color){ toast("اكتب نتيجة اختبار واحدة على الأقل","warning"); return; }
+  const test_date = todayStr();
+  const payload = {
+    sample_id: smpSelectedSample.id, sample_no: smpSelectedSample.sample_no,
+    product_name: smpSelectedSample.product_name, department: smpSelectedSample.department,
+    test_date, life_days: smpSelectedSample.life_days || null,
+    smell, general_shape: shape, texture, taste, color, notes,
+    created_by: myProfile ? myProfile.id : null, created_by_name: myProfile ? myProfile.username : null
+  };
+  const { error: e1 } = await sb.from(SAMPLES_TESTS_TABLE).insert(payload);
+  if(e1){ toast("تعذر حفظ نتيجة الفحص: "+(e1.message||e1.code||"خطأ"),"error"); return; }
+  const { error: e2 } = await sb.from(SAMPLES_TABLE).update({ last_test_date: test_date }).eq("id", smpSelectedSample.id);
+  if(e2) console.error("update last_test_date error:", e2);
+  toast("تم حفظ نتيجة الفحص","success");
+  smpSelectedSample.last_test_date = test_date;
+  await smpLoadTestHistory(smpSelectedSample.id, smpSelectedSample.product_name, smpSelectedSample.department);
+  ["smpT_smell","smpT_shape","smpT_texture","smpT_taste","smpT_color","smpT_notes"].forEach(id=>document.getElementById(id).value="");
+  if(document.getElementById("smpManualPage").style.display !== "none") runSmpManualSearch();
+  if(document.getElementById("smpSchedulePage").style.display !== "none") runSmpScheduleSearch();
+});
+
+/* ---------- edit an existing sample's data (from البحث, or from the test
+   panel's "✏️ تعديل بيانات العينة" button) ---------- */
+let smpEditingId = null;
+async function openSmpEditModal(id){
+  const { data, error } = await sb.from(SAMPLES_TABLE).select("*").eq("id", id).single();
+  if(error || !data){ toast("تعذر تحميل بيانات العينة","error"); return; }
+  smpEditingId = id;
+  await loadSmpDeptCache(); fillSmpDeptSelects();
+  document.getElementById("smpEditSampleNoLabel").textContent = data.sample_no ?? "";
+  document.getElementById("smpE_sample_no").value = data.sample_no ?? "";
+  setDateValue("smpE_production_date", data.production_date || "");
+  setDateValue("smpE_expiry_date", data.expiry_date || "");
+  setDateValue("smpE_pull_date", data.pull_date || "");
+  document.getElementById("smpE_department").value = data.department || "";
+  document.getElementById("smpE_direction").value = data.direction || "";
+  document.getElementById("smpE_weight").value = data.weight ?? "";
+  document.getElementById("smpE_batch").value = data.batch_no || "";
+  document.getElementById("smpE_product_name").value = data.product_name || "";
+  document.getElementById("smpE_notes").value = data.notes || "";
+  document.getElementById("smpEditModal").classList.add("open");
+}
+window.openSmpEditModal = openSmpEditModal;
+document.getElementById("btnSmpEditCancel").addEventListener("click", ()=>document.getElementById("smpEditModal").classList.remove("open"));
+document.getElementById("btnSmpEditClose").addEventListener("click", ()=>document.getElementById("smpEditModal").classList.remove("open"));
+document.getElementById("smpEditModal").addEventListener("click", (e)=>{ if(false && e.target.id==="smpEditModal") document.getElementById("smpEditModal").classList.remove("open"); });
+document.getElementById("btnSmpEditSelected").addEventListener("click", ()=>{
+  if(!smpSelectedSample){ toast("اختر عينة أولاً","warning"); return; }
+  openSmpEditModal(smpSelectedSample.id);
+});
+bindBusyClick("btnSmpEditSave", async ()=>{
+  if(!smpEditingId) return;
+  const production_date = document.getElementById("smpE_production_date").value;
+  const department = document.getElementById("smpE_department").value;
+  const direction = document.getElementById("smpE_direction").value;
+  const product_name = document.getElementById("smpE_product_name").value.trim();
+  if(!product_name){ toast("اكتب اسم المنتج","warning"); return; }
+  if(!production_date){ toast("اختر تاريخ إنتاج العينة","warning"); return; }
+  if(!department){ toast("اختر القسم الإنتاجى","warning"); return; }
+  if(!direction){ toast("اختر اتجاه الصنف","warning"); return; }
+  const weightVal = document.getElementById("smpE_weight").value.trim();
+  const payload = {
+    production_date,
+    expiry_date: document.getElementById("smpE_expiry_date").value || null,
+    pull_date: document.getElementById("smpE_pull_date").value || null,
+    department, direction,
+    weight: weightVal ? Number(weightVal) : null,
+    batch_no: document.getElementById("smpE_batch").value.trim(),
+    product_name,
+    notes: document.getElementById("smpE_notes").value.trim(),
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from(SAMPLES_TABLE).update(payload).eq("id", smpEditingId);
+  if(error){ toast("تعذر حفظ التعديلات: "+(error.message||error.code||"خطأ"),"error"); return; }
+  // keep the (denormalized) test-history rows in sync so the reports tab
+  // still groups correctly if the product name/department was corrected.
+  await sb.from(SAMPLES_TESTS_TABLE).update({ product_name, department }).eq("sample_id", smpEditingId);
+  toast("تم حفظ التعديلات","success");
+  document.getElementById("smpEditModal").classList.remove("open");
+  if(document.getElementById("smpSearchPage").style.display !== "none") runSmpSearch();
+  if(document.getElementById("smpManualPage").style.display !== "none") runSmpManualSearch();
+  if(document.getElementById("smpSchedulePage").style.display !== "none") runSmpScheduleSearch();
+  if(smpSelectedSample && smpSelectedSample.id === smpEditingId) await window.smpSelectSample(smpEditingId);
+  smpEditingId = null;
+});
+
+/* ---------- search mode (البحث) ---------- */
+let smpSearchTestedFilter = "untested"; // 'untested' | 'tested' | 'all'
+function smpSetSearchFilter(mode){
+  smpSearchTestedFilter = mode;
+  const map = { untested:"smpS_filterUntested", tested:"smpS_filterTested", all:"smpS_filterAll" };
+  Object.values(map).forEach(id=>document.getElementById(id).classList.remove("active"));
+  document.getElementById(map[mode]).classList.add("active");
+}
+document.getElementById("smpS_filterUntested").addEventListener("click", ()=>smpSetSearchFilter("untested"));
+document.getElementById("smpS_filterTested").addEventListener("click", ()=>smpSetSearchFilter("tested"));
+document.getElementById("smpS_filterAll").addEventListener("click", ()=>smpSetSearchFilter("all"));
+
+let smpLastSearchResults = [];
+async function runSmpSearch(){
+  let q = sb.from(SAMPLES_TABLE).select("*");
+  const pf=document.getElementById("smpS_prod_from").value, pt=document.getElementById("smpS_prod_to").value;
+  const wf=document.getElementById("smpS_pull_from").value, wt=document.getElementById("smpS_pull_to").value;
+  const ef=document.getElementById("smpS_exp_from").value, et=document.getElementById("smpS_exp_to").value;
+  const tf=document.getElementById("smpS_test_from").value, tt=document.getElementById("smpS_test_to").value;
+  if(pf) q=q.gte("production_date",pf); if(pt) q=q.lte("production_date",pt);
+  if(wf) q=q.gte("pull_date",wf); if(wt) q=q.lte("pull_date",wt);
+  if(ef) q=q.gte("expiry_date",ef); if(et) q=q.lte("expiry_date",et);
+  if(tf) q=q.gte("last_test_date",tf); if(tt) q=q.lte("last_test_date",tt);
+  const dept = document.getElementById("smpS_department").value; if(dept) q=q.eq("department",dept);
+  const prod = document.getElementById("smpS_product").value.trim(); if(prod) q=q.ilike("product_name","%"+prod+"%");
+  const dir = document.getElementById("smpS_direction").value; if(dir) q=q.eq("direction",dir);
+  const w = document.getElementById("smpS_weight").value.trim(); if(w) q=q.eq("weight", Number(w));
+  const batch = document.getElementById("smpS_batch").value.trim(); if(batch) q=q.ilike("batch_no","%"+batch+"%");
+  if(smpSearchTestedFilter==="untested") q=q.is("last_test_date", null);
+  if(smpSearchTestedFilter==="tested") q=q.not("last_test_date","is",null);
+  q = q.order("production_date",{ascending:false}).limit(2000);
+  const { data, error } = await q;
+  const body = document.getElementById("smpSearchTableBody");
+  if(error){ toast("تعذر البحث: "+(error.message||error.code||"خطأ"),"error"); body.innerHTML=""; return; }
+  smpLastSearchResults = data || [];
+  document.getElementById("smpSearchTotalCount").textContent = smpLastSearchResults.length;
+  body.innerHTML = smpLastSearchResults.length===0 ? `<tr><td colspan="12" style="text-align:center;opacity:.7;">لا توجد نتائج</td></tr>`
+    : smpLastSearchResults.map(r=>`
+    <tr>
+      <td>${r.sample_no??""}</td><td>${escapeHtml(r.retention_label||"")}</td><td>${escapeHtml(r.department||"")}</td>
+      <td>${formatDateDisplay(r.pull_date)}</td><td>${escapeHtml(r.product_name||"")}</td>
+      <td>${formatDateDisplay(r.production_date)}</td><td>${formatDateDisplay(r.expiry_date)}</td>
+      <td>${escapeHtml(r.direction||"")}</td><td>${r.weight??""}</td><td>${escapeHtml(r.batch_no||"")}</td>
+      <td>${formatDateDisplay(r.last_test_date)}</td>
+      <td class="row-actions"><button title="تعديل" data-click="openSmpEditModal" data-args='${escapeHtml(JSON.stringify([r.id]))}'>✏️</button></td>
+    </tr>`).join("");
+}
+document.getElementById("btnSmpSearchGo").addEventListener("click", runSmpSearch);
+document.getElementById("btnSmpSearchReset").addEventListener("click", ()=>{
+  ["smpS_prod_from","smpS_prod_to","smpS_pull_from","smpS_pull_to","smpS_exp_from","smpS_exp_to","smpS_test_from","smpS_test_to"].forEach(id=>setDateValue(id,""));
+  document.getElementById("smpS_department").value = "";
+  document.getElementById("smpS_product").value = "";
+  document.getElementById("smpS_direction").value = "";
+  document.getElementById("smpS_weight").value = "";
+  document.getElementById("smpS_batch").value = "";
+  smpSetSearchFilter("untested");
+  document.getElementById("smpSearchTableBody").innerHTML = "";
+  document.getElementById("smpSearchTotalCount").textContent = "0";
+});
+
+bindBusyClick("btnSmpSearchExportExcel", async ()=>{
+  if(smpLastSearchResults.length===0){ toast("لا توجد بيانات للتصدير","warning"); return; }
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    const wb = new ExcelJS.Workbook();
+    const sheet = wb.addWorksheet("نتائج البحث", { views:[{ rightToLeft:true }] });
+    const headers = ["رقم العينة","مدة حفظ العينات","القسم","تاريخ السحب","إسم المنتج","تاريخ الإنتاج","تاريخ الإنتهاء","الاتجاه","الوزن","رقم التشغيلة","تاريخ آخر فحص"];
+    sheet.addRow(headers).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E86AB"}}; c.alignment={horizontal:"center"}; });
+    smpLastSearchResults.forEach(r=>{
+      sheet.addRow([r.sample_no,r.retention_label||"",r.department||"",formatDateDisplay(r.pull_date),r.product_name||"",
+        formatDateDisplay(r.production_date),formatDateDisplay(r.expiry_date),r.direction||"",r.weight??"",r.batch_no||"",
+        formatDateDisplay(r.last_test_date)]).eachCell(c=>c.alignment={horizontal:"center"});
+    });
+    autoFitSheetColumns(sheet);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "بحث_غرفة_العينات.xlsx"; link.click();
+    toast("تم تصدير ملف Excel بنجاح","success");
+  } catch(err){ toast("خطأ فى تصدير Excel: "+err.message,"error"); } finally { showSpinner(false); }
+});
+
+/* ---------- report mode (تقرير عدد الفحوصات لكل منتج) ---------- */
+let smpLastReportRows = [];
+async function runSmpReport(){
+  let q = sb.from(SAMPLES_TESTS_TABLE).select("test_date,product_name,department");
+  const from = document.getElementById("smpR_from").value, to = document.getElementById("smpR_to").value;
+  if(from) q=q.gte("test_date",from); if(to) q=q.lte("test_date",to);
+  const dept = document.getElementById("smpR_department").value; if(dept) q=q.eq("department",dept);
+  const prod = document.getElementById("smpR_product").value.trim(); if(prod) q=q.ilike("product_name","%"+prod+"%");
+  const { data, error } = await q;
+  const body = document.getElementById("smpReportTableBody");
+  if(error){ toast("تعذر تحميل التقرير: "+(error.message||error.code||"خطأ"),"error"); body.innerHTML=""; return; }
+  const groups = {};
+  (data||[]).forEach(r=>{
+    const p = r.product_name || "غير محدد";
+    const d = r.department || "";
+    const key = p+"||"+d;
+    if(!groups[key]) groups[key] = { product:p, department:d, count:0, first:r.test_date, last:r.test_date };
+    groups[key].count++;
+    if(r.test_date < groups[key].first) groups[key].first = r.test_date;
+    if(r.test_date > groups[key].last) groups[key].last = r.test_date;
+  });
+  smpLastReportRows = Object.values(groups).sort((a,b)=>b.count-a.count);
+  document.getElementById("smpReportTotalCount").textContent = (data||[]).length;
+  body.innerHTML = smpLastReportRows.length===0 ? `<tr><td colspan="6" style="text-align:center;opacity:.7;">لا توجد بيانات فحص فى هذه الفترة</td></tr>`
+    : smpLastReportRows.map(g=>`
+    <tr><td>${escapeHtml(g.product)}</td><td>${escapeHtml(g.department)}</td><td>${g.count}</td>
+    <td>${formatDateDisplay(g.first)}</td><td>${formatDateDisplay(g.last)}</td>
+    <td><button class="btn info" data-click="smpExportProductTests" data-args='${escapeHtml(JSON.stringify([g.product,g.department]))}' style="padding:4px 10px;font-size:12px;">📄 تقرير تفصيلى Excel</button></td></tr>`).join("");
+}
+document.getElementById("btnSmpReportGo").addEventListener("click", runSmpReport);
+
+bindBusyClick("btnSmpReportExportExcel", async ()=>{
+  if(smpLastReportRows.length===0){ toast("لا توجد بيانات للتصدير","warning"); return; }
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    const wb = new ExcelJS.Workbook();
+    const sheet = wb.addWorksheet("تقرير الفحوصات", { views:[{ rightToLeft:true }] });
+    sheet.addRow(["إسم المنتج","القسم","عدد مرات الفحص","تاريخ أول فحص","تاريخ آخر فحص"]).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E86AB"}}; c.alignment={horizontal:"center"}; });
+    smpLastReportRows.forEach(g=>{
+      sheet.addRow([g.product,g.department,g.count,formatDateDisplay(g.first),formatDateDisplay(g.last)]).eachCell(c=>c.alignment={horizontal:"center"});
+    });
+    autoFitSheetColumns(sheet);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "تقرير_عدد_الفحوصات.xlsx"; link.click();
+    toast("تم تصدير ملف Excel بنجاح","success");
+  } catch(err){ toast("خطأ فى تصدير Excel: "+err.message,"error"); } finally { showSpinner(false); }
+});
+
+window.smpExportProductTests = async function(product, department){
+  showSpinner(true);
+  try{
+    let q = sb.from(SAMPLES_TESTS_TABLE).select("*").eq("product_name", product);
+    if(department) q = q.eq("department", department); else q = q.is("department", null);
+    const from = document.getElementById("smpR_from").value, to = document.getElementById("smpR_to").value;
+    if(from) q=q.gte("test_date",from); if(to) q=q.lte("test_date",to);
+    q = q.order("test_date",{ascending:true});
+    const { data, error } = await q;
+    if(error){ toast("تعذر تحميل بيانات الفحوصات: "+(error.message||error.code||"خطأ"),"error"); return; }
+    if(!data || data.length===0){ toast("لا توجد فحوصات لهذا المنتج فى هذه الفترة","warning"); return; }
+    await ensureExcelJs();
+    const wb = new ExcelJS.Workbook();
+    const sheet = wb.addWorksheet("تفاصيل الفحوصات", { views:[{ rightToLeft:true }] });
+    const titleRow = sheet.addRow([`تقرير تفصيلى لفحوصات: ${product}${department?" - "+department:""}`]);
+    sheet.mergeCells(1,1,1,10);
+    titleRow.font = { bold:true, size:14 };
+    titleRow.alignment = { horizontal:"center" };
+    sheet.addRow([]);
+    const headerRow = sheet.addRow(["م","تاريخ الفحص","رقم العينة","الرائحة","الشكل العام","القوام","الطعم","اللون","ملاحظات","بواسطة"]);
+    headerRow.eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E86AB"}}; c.alignment={horizontal:"center"}; });
+    data.forEach((t,i)=>{
+      sheet.addRow([i+1, formatDateDisplay(t.test_date), t.sample_no??"", t.smell||"", t.general_shape||"", t.texture||"", t.taste||"", t.color||"", t.notes||"", t.created_by_name||""])
+        .eachCell(c=>c.alignment={horizontal:"center", wrapText:true});
+    });
+    autoFitSheetColumns(sheet);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `تفاصيل_فحوصات_${product}.xlsx`; link.click();
+    toast("تم تصدير التقرير التفصيلى بنجاح","success");
+  } catch(err){ toast("خطأ فى تصدير Excel: "+err.message,"error"); } finally { showSpinner(false); }
+};
+
+/* ---------- mode switching between the list, search, and report screens ---------- */
+function smpGoSearch(){
+  document.getElementById("smpListModes").style.display = "none";
+  document.getElementById("smpReportPage").style.display = "none";
+  document.getElementById("smpSearchPage").style.display = "";
+  runSmpSearch();
+}
+function smpGoReport(){
+  document.getElementById("smpListModes").style.display = "none";
+  document.getElementById("smpSearchPage").style.display = "none";
+  document.getElementById("smpReportPage").style.display = "";
+}
+function smpBackToList(){
+  document.getElementById("smpSearchPage").style.display = "none";
+  document.getElementById("smpReportPage").style.display = "none";
+  document.getElementById("smpListModes").style.display = "";
+}
+document.getElementById("btnSmpGoSearch").addEventListener("click", smpGoSearch);
+document.getElementById("btnSmpGoReport").addEventListener("click", smpGoReport);
+document.getElementById("btnSmpSearchBack").addEventListener("click", smpBackToList);
+document.getElementById("btnSmpReportBack").addEventListener("click", smpBackToList);
+
+/* ---------- page init ---------- */
+async function initSamplesPage(){
+  await loadSmpDeptCache();
+  fillSmpDeptSelects();
+  document.getElementById("smpLifeStagesLabel").textContent = SMP_LIFE_STAGES.join("، ");
+  smpSetSearchFilter("untested");
+  smpBackToList();
+  smpSetListMode("manual");
+}
+
+/* =========================================================
    DATE PICKER CONFIG & INITS
 ========================================================= */
 const datePickerInstances = {};
@@ -11874,7 +13081,12 @@ const OPEN_RANGE_DATE_IDS = new Set([
   "s2_date_from","s2_date_to",
   "arbSearch_date_from","arbSearch_date_to",
   "atpVacationDate",
-  "s3_date_to"
+  "s3_date_to",
+  "smpA_expiry_date",
+  "smpE_expiry_date",
+  "smpS_exp_from","smpS_exp_to",
+  "smpS_prod_to","smpS_pull_to","smpS_test_to",
+  "smpR_to"
 ]);
 async function lockAllDateInputs(){
   await ensureFlatpickr();
@@ -11890,6 +13102,7 @@ async function lockAllDateInputs(){
     const isReceiptDate = inp.id.endsWith("_receipt_date");
     const isApprovalDate = inp.id.endsWith("_approval_date");
     const isArbProductionDate = inp.id === "arbS_production_date";
+    const isSmpExpiryDate = inp.id === "smpA_expiry_date" || inp.id === "smpE_expiry_date";
     const isOpenRange = OPEN_RANGE_DATE_IDS.has(inp.id);
     const isRangeTo = inp.id.endsWith("_date_to") && !!document.getElementById(prefix+"_date_from");
     const isRangeFrom = inp.id.endsWith("_date_from") && !!document.getElementById(prefix+"_date_to");
@@ -11930,6 +13143,12 @@ async function lockAllDateInputs(){
         if(!judgingVal) return false;
         return ymdLocal(date) > judgingVal;
       });
+    } else if(isSmpExpiryDate){
+      disableFns.push(function(date){
+        const prodVal = document.getElementById(prefix+"_production_date")?.value || "";
+        if(!prodVal) return false;
+        return ymdLocal(date) < prodVal;
+      });
     }
     datePickerInstances[inp.id] = flatpickr(inp, {
       dateFormat: "Y-m-d",
@@ -11951,6 +13170,9 @@ async function lockAllDateInputs(){
         } else if(isArbProductionDate){
           const judgingVal = document.getElementById("arbS_judging_date")?.value || "";
           if(judgingVal){ try{ instance.jumpToDate(judgingVal); }catch(e){} }
+        } else if(isSmpExpiryDate){
+          const prodVal = document.getElementById(prefix+"_production_date")?.value || "";
+          if(prodVal){ try{ instance.jumpToDate(prodVal); }catch(e){} }
         } else if(isRangeTo){
           const fromVal = document.getElementById(prefix+"_date_from")?.value || "";
           if(fromVal){ try{ instance.jumpToDate(fromVal); }catch(e){} }
