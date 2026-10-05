@@ -1781,7 +1781,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <div class="atp-print-title-frame">نموذج متابعة جهاز ATP</div>
 
           <div class="panel atp-page-header-inner">
-            <div class="atp-legend">مطابق = <span class="math-expr">URL اقل من 50</span></div>
+            <div class="atp-legend">مطابق = <span class="math-expr">RLU اقل من 50</span></div>
           </div>
 
           <div class="panel no-print">
@@ -3042,7 +3042,10 @@ async function debugSignOut(reason){
 }
 
 async function loadMyProfile(){
-  const { data: { user } } = await sb.auth.getUser();
+  /* getSession() بيقرأ الجلسة من التخزين المحلى (بدون رحلة شبكة)؛ الحماية الفعلية
+     لسه عند السيرفر لأن كل طلب بعده بيروح بالـ JWT وبتطبّق عليه RLS. */
+  const { data: { session: __s } } = await sb.auth.getSession();
+  const user = __s && __s.user;
   if(!user) return null;
   /* Retry with a short backoff instead of a fixed 900ms blind wait — the
      app shell is not blocked for a full second on slow networks. */
@@ -3140,9 +3143,11 @@ function fireLogoutOnClose(){
 }
 window.addEventListener("pagehide", ()=>{ if(myProfile) fireLogoutOnClose(); });
 
+let __profilePrefetch = null;
 async function enterApp(){
   showSpinner(true);
-  myProfile = await loadMyProfile();
+  const __pf = __profilePrefetch; __profilePrefetch = null;
+  myProfile = await (__pf || loadMyProfile());
   showSpinner(false);
   if(!myProfile){
     /* Include the underlying Supabase error (code/message) in the console
@@ -3164,7 +3169,8 @@ async function enterApp(){
     await debugSignOut("enterApp: profile.is_active is false");
     return;
   }
-  await setMyLoginStatus(true);
+  /* مش لازم نستنى: نبضة الـ heartbeat بتكرر نفس الاستدعاء كل 3 ثوانى */
+  setMyLoginStatus(true).catch(()=>{});
   startLoginHeartbeat();
   myRole = myProfile.role;
   myIsActive = myProfile.is_active;
@@ -3174,10 +3180,12 @@ async function enterApp(){
   applyRolePermissions();
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
-  await lockAllDateInputs();
-  setDateValue("f_report_date", todayStr());
-  syncApprovalMinDate("f");
-  syncApprovalMinDate("e");
+  /* تحميل مكتبة التاريخ من CDN كان بيعطّل دخول التطبيق — بقى فى الخلفية */
+  lockAllDateInputs().then(()=>{
+    setDateValue("f_report_date", todayStr());
+    syncApprovalMinDate("f");
+    syncApprovalMinDate("e");
+  }).catch(e=>console.warn("lockAllDateInputs failed", e));
   /* Non-critical data loads are deferred so the app shell shows instantly.
      Fall back to immediate loading where requestIdleCallback is unsupported. */
   const idleWork = (fn)=>{
@@ -3355,6 +3363,9 @@ bindBusyClick("btnLogin", async ()=>{
     return;
   }
 
+  /* نحمّل البروفايل بالتوازى مع فحص الجلسة المفتوحة بدل ما نستنى كل واحد لوحده */
+  __profilePrefetch = loadMyProfile();
+  __profilePrefetch.catch(()=>{});
   const alreadyLoggedIn = await getUsernameLoginStatus(username);
   if(alreadyLoggedIn){
     __conflictProceed = async (uname)=>{
@@ -3432,6 +3443,7 @@ document.getElementById("btnConflictProceed").addEventListener("click", async ()
 });
 document.getElementById("btnConflictCancel").addEventListener("click", async ()=>{
   __conflictProceed = null;
+  __profilePrefetch = null;
   closeSessionConflictModal();
   await debugSignOut("session conflict modal: user clicked Cancel");
   document.getElementById("authMsg").textContent = "تم إلغاء تسجيل الدخول. إذا كنت مسجلاً دخولك بالفعل من جهاز آخر، أنهِ جلسة هذا المستخدم من ذلك الجهاز أولاً.";
@@ -6315,9 +6327,26 @@ function atpOpenSavedReport(monthKey){
 }
 
 function atpDeleteSavedReport(monthKey, event){
-  event.stopPropagation();
+  /* runDataAction بينادى الفانكشن بالـ args بس (من غير event) — فكان
+     event.stopPropagation() بيرمى خطأ ومكانش بيحصل حذف. data-stop="1"
+     بيعمل stopPropagation أصلاً، فالـ event هنا اختيارى. */
+  if(event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  if(!atpReportsHistory[monthKey]) return;
+  if(!confirm('هل تريد حذف هذا التقرير المحفوظ نهائيًا؟')) return;
   delete atpReportsHistory[monthKey];
+  try{ localStorage.setItem(ATP_HISTORY_KEY, JSON.stringify(atpReportsHistory)); }catch(e){}
   atpRenderHistoryList();
+  /* لو التقرير المحذوف هو المعروض حاليًا، امسحه من الشاشة */
+  const monthInput = document.getElementById('atpMonthInput');
+  if(monthInput && monthInput.value === monthKey){
+    monthInput.value = '';
+    atpReportData = { days: [], rows: [] };
+    atpRemovedDays = new Set();
+    atpRemovedCells = new Set();
+    atpRenderTable();
+    atpRenderSamplerRow();
+    atpHideReportButtons();
+  }
   atpCloudSave();
 }
 
@@ -6621,7 +6650,7 @@ function atpBuildPdfPageHTML(rowsHtml, includeFootAndSigs){
 
   return `
     <div style="border:1px solid #000;padding:8px;text-align:center;font-weight:bold;font-size:18px;margin-bottom:14px;color:#000;">نموذج متابعة جهاز ATP</div>
-    <div style="text-align:center;font-weight:bold;font-size:13px;margin-bottom:10px;color:#000;">مطابق = <span style="direction:ltr;unicode-bidi:embed;display:inline-block;">URL اقل من 50</span></div>
+    <div style="text-align:center;font-weight:bold;font-size:13px;margin-bottom:10px;color:#000;">مطابق = <span style="direction:ltr;unicode-bidi:embed;display:inline-block;">RLU اقل من 50</span></div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
       <thead><tr>${headerRow1}</tr><tr>${headerRow2}</tr></thead>
       <tbody>${rowsHtml}</tbody>
@@ -13285,6 +13314,8 @@ resetInactivityTimer();
     }
   }catch(e){}
 
+  /* تحميل مسبق لمكتبة التاريخ أثناء ظهور شاشة الدخول */
+  setTimeout(()=>{ ensureFlatpickr().catch(()=>{}); }, 0);
   const loggedOutForBeingClosed = await checkAutoLogoutAfterClose();
   if(!loggedOutForBeingClosed){
     const { data: { session } } = await sb.auth.getSession();
