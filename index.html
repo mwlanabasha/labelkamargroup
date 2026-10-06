@@ -79,45 +79,30 @@ $$;
 --    themselves sets their own new password with this function (still runs
 --    before login, hence SECURITY DEFINER) — it re-checks approval status
 --    itself so it can't be called without admin sign-off.
-CREATE OR REPLACE FUNCTION user_complete_password_reset(check_username TEXT, new_password TEXT, reset_token TEXT)
+ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+DROP FUNCTION IF EXISTS user_complete_password_reset(TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION user_complete_password_reset(check_username TEXT, new_password TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public, extensions AS $$
+SECURITY DEFINER SET search_path = public, extensions, auth AS $$
 DECLARE
   v_user_id UUID;
   v_req_id  UUID;
-  v_reset_token TEXT := reset_token;
 BEGIN
+  IF new_password IS NULL OR length(new_password) < 6 THEN RAISE EXCEPTION 'WEAK_PASSWORD'; END IF;
   SELECT profiles.id INTO v_user_id FROM profiles WHERE profiles.username = check_username;
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'USER_NOT_FOUND';
-  END IF;
-
-  IF v_reset_token IS NULL OR trim(v_reset_token) = '' THEN
-    RAISE EXCEPTION 'INVALID_RESET_TOKEN';
-  END IF;
-
-  SELECT prr.id INTO v_req_id
-  FROM password_reset_requests prr
-  WHERE prr.user_id = v_user_id
-    AND prr.status = 'approved'
-    AND prr.reset_token = v_reset_token
-  ORDER BY prr.created_at DESC
-  LIMIT 1;
-
-  IF v_req_id IS NULL THEN
-    RAISE EXCEPTION 'NOT_APPROVED';
-  END IF;
-
-  UPDATE auth.users
-  SET encrypted_password = crypt(new_password, gen_salt('bf'))
-  WHERE id = v_user_id;
-
-  UPDATE password_reset_requests
-  SET status = 'completed'
-  WHERE id = v_req_id;
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'USER_NOT_FOUND'; END IF;
+  SELECT prr.id INTO v_req_id FROM password_reset_requests prr
+  WHERE prr.user_id = v_user_id AND prr.status = 'approved'
+    AND coalesce(prr.approved_at, prr.created_at) > now() - interval '24 hours'
+  ORDER BY prr.created_at DESC LIMIT 1;
+  IF v_req_id IS NULL THEN RAISE EXCEPTION 'NOT_APPROVED'; END IF;
+  UPDATE auth.users SET encrypted_password = crypt(new_password, gen_salt('bf')), updated_at = now() WHERE id = v_user_id;
+  DELETE FROM auth.sessions WHERE user_id = v_user_id;
+  UPDATE password_reset_requests SET status = 'completed' WHERE id = v_req_id;
 END;
 $$;
+GRANT EXECUTE ON FUNCTION user_complete_password_reset(TEXT, TEXT) TO anon, authenticated;
 
 -- =====================================================================
 -- 6. Performance RPCs — run in the Supabase SQL Editor (safe to re-run)
@@ -809,6 +794,12 @@ tbody tr:hover{background:#ffe9f2;}
 }
 #page-atp .atp-group-block input[type="checkbox"]{ accent-color:var(--accent-pink); margin-left:6px; }
 
+#page-atp .atp-line-item{ display:inline-block; }
+#page-atp .atp-group-head{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+#atpMgrBody .atp-mgr-group{ margin-top:12px;padding:12px;background:var(--bg-app);border:1px solid var(--border-thin);border-radius:8px; }
+#atpMgrBody .atp-mgr-row{ display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px; }
+#atpMgrBody .atp-mgr-row .field{ flex:1;min-width:150px;margin:0; }
+#atpMgrBody .atp-mgr-lines{ margin-top:10px;padding-right:10px;border-right:3px solid var(--accent-pink); }
 #page-atp .atp-vacation-item{
   display:inline-block;background:var(--bg-app);border:1px solid var(--border-thin);
   padding:4px 10px;margin:3px;border-radius:999px;font-size:13px;color:var(--text-main);
@@ -1811,36 +1802,9 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             </div>
 
             <div class="atp-group-block">
-              <strong>المخبوزات:</strong>
-              <button class="btn ghost" style="padding:6px 14px;font-size:12.5px;" data-click="atpToggleGroup" data-args='["atpBakery",true]'>تحديد الكل</button>
-              <button class="btn ghost" style="padding:6px 14px;font-size:12.5px;" data-click="atpToggleGroup" data-args='["atpBakery",false]'>إلغاء</button>
-              <div id="atpBakery">
-                <label><input type="checkbox" value="المعمول 1"> المعمول 1</label>
-                <label><input type="checkbox" value="المعمول 2"> المعمول 2</label>
-                <label><input type="checkbox" value="الشيكولاتة 1"> الشيكولاتة 1</label>
-                <label><input type="checkbox" value="الشيكولاتة 2"> الشيكولاتة 2</label>
-                <label><input type="checkbox" value="الطوفي"> الطوفي</label>
-                <label><input type="checkbox" value="الجلاس"> الجلاس</label>
-                <label><input type="checkbox" value="المصاصة"> المصاصة</label>
-                <label><input type="checkbox" value="الجيلي"> الجيلي</label>
-                <label><input type="checkbox" value="الكراميل"> الكراميل</label>
-                <label><input type="checkbox" value="الكب كيك"> الكب كيك</label>
-                <label><input type="checkbox" value="الكيكو باي"> الكيكو باي</label>
-                <label><input type="checkbox" value="البسكويت"> البسكويت</label>
-                <label><input type="checkbox" value="باي كيك"> باي كيك</label>
-              </div>
+              <button class="btn primary" style="padding:8px 16px;font-size:13px;" data-click="atpOpenMgr">⚙️ إدارة المصانع والخطوط (إضافة / تعديل / حذف)</button>
             </div>
-            <div class="atp-group-block">
-              <strong>المركزات:</strong>
-              <button class="btn ghost" style="padding:6px 14px;font-size:12.5px;" data-click="atpToggleGroup" data-args='["atpConcentrates",true]'>تحديد الكل</button>
-              <button class="btn ghost" style="padding:6px 14px;font-size:12.5px;" data-click="atpToggleGroup" data-args='["atpConcentrates",false]'>إلغاء</button>
-              <div id="atpConcentrates">
-                <label><input type="checkbox" value="CNA"> CNA</label>
-                <label><input type="checkbox" value="PET"> PET</label>
-                <label><input type="checkbox" value="الصلصة"> الصلصة</label>
-                <label><input type="checkbox" value="خط الاسيبتك">خط الاسبيتك</label>
-    </div>
-  </div>
+            <div id="atpGroupsContainer"></div>
 </div>
 
 <nav id="bottomNav" aria-label="التنقل السفلي">
@@ -2492,6 +2456,20 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
         <button class="btn ghost" id="btnFpwClose2" style="flex:1;">إلغاء</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ATP: manage factories & lines modal -->
+<div id="atpMgrModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:820px; width:96%; max-height:92vh; overflow:auto;">
+    <span class="modal-x-close" data-close-target="btnAtpMgrClose" title="إغلاق">✕</span>
+    <div class="modal-title">إدارة المصانع والخطوط (ATP)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+      <div class="field" style="flex:1;min-width:200px;margin:0;"><label style="font-size:12px;">إضافة مصنع / قسم جديد</label><input type="text" id="atpNewGroupName" placeholder="مثال: المشروبات الغازية" autocomplete="off" style="padding:7px 10px;font-size:13px;"></div>
+      <button class="btn primary" style="padding:8px 14px;font-size:12.5px;" data-click="atpAddGroup">➕ إضافة مصنع</button>
+    </div>
+    <div id="atpMgrBody"></div>
+    <div class="btn-row"><button class="btn ghost" id="btnAtpMgrClose" style="padding:7px 14px;font-size:12px;">إغلاق</button></div>
   </div>
 </div>
 
@@ -3604,7 +3582,7 @@ bindBusyClick("btnFpwSubmit", async ()=>{
     return;
   }
   msgEl.style.color = "#2e7d32";
-  msgEl.textContent = "تم إرسال طلب تغيير كلمة السر لمدير النظام بنجاح. بعد موافقته، ارجع لهذه النافذة بنفس اسم المستخدم لتعيين كلمة سر جديدة بنفسك.";
+  msgEl.textContent = "تم إرسال طلب تغيير كلمة السر لمدير النظام بنجاح. بعد موافقته، افتح هذه النافذة من أى جهاز أو متصفح بنفس اسم المستخدم لتعيين كلمة سر جديدة بنفسك.";
 });
 
 bindBusyClick("btnFpwSetNew", async ()=>{
@@ -3615,23 +3593,17 @@ bindBusyClick("btnFpwSetNew", async ()=>{
   if(!newPw || newPw.length < 6){ msgEl.textContent = "كلمة السر يجب أن تكون 6 أحرف على الأقل"; return; }
   if(newPw !== confirmPw){ msgEl.textContent = "كلمة السر وتأكيدها غير متطابقين"; return; }
 
-  let resetToken = "";
-  try{ resetToken = localStorage.getItem("pwResetToken_" + fpwApprovedUsername) || ""; }catch(e){}
-  if(!resetToken){
-    msgEl.textContent = "لا يمكن إتمام التغيير من هذا الجهاز. أرسل الطلب من نفس المتصفح الذي أرسلت منه طلب استرجاع كلمة السر.";
-    return;
-  }
-
   showSpinner(true);
   const { error } = await sb.rpc("user_complete_password_reset", {
     check_username: fpwApprovedUsername,
-    new_password: newPw,
-    reset_token: resetToken
+    new_password: newPw
   });
   showSpinner(false);
   if(error){
     if((error.message||"").includes("NOT_APPROVED")){
-      msgEl.textContent = "طلبك لم يتم اعتماده بعد من مدير النظام.";
+      msgEl.textContent = "طلبك لم يتم اعتماده بعد من مدير النظام، أو انتهت صلاحية الموافقة (24 ساعة). أرسل طلباً جديداً.";
+    } else if((error.message||"").includes("WEAK_PASSWORD")){
+      msgEl.textContent = "كلمة السر يجب أن تكون 6 أحرف على الأقل";
     } else {
       msgEl.textContent = "حدث خطأ: " + error.message;
     }
@@ -3653,7 +3625,7 @@ async function approvePasswordResetRequest(id, userId, username){
   if(myRole !== "admin") return;
   if(!confirm(`هل توافق على طلب تغيير كلمة السر لليوزر "${username}"؟ سيتمكن هو بنفسه من تعيين كلمة سر جديدة.`)) return;
   showSpinner(true);
-  const { error } = await sb.from("password_reset_requests").update({ status: "approved" }).eq("id", id);
+  const { error } = await sb.from("password_reset_requests").update({ status: "approved", approved_at: new Date().toISOString() }).eq("id", id);
   showSpinner(false);
   if(error){
     toast("تعذر تنفيذ الموافقة: " + (error.message||error.code||"خطأ غير معروف"), "error");
@@ -6197,6 +6169,275 @@ function atpSetSyncStatus(text, ok){
   el.style.color = ok ? '#2e7d32' : 'var(--danger)';
 }
 
+const ATP_GROUPS_KEY = 'atpGroups';
+const ATP_DEFAULT_GROUPS = [
+  { id:'bakery', name:'المخبوزات', lines:["المعمول 1","المعمول 2","الشيكولاتة 1","الشيكولاتة 2","الطوفي","الجلاس","المصاصة","الجيلي","الكراميل","الكب كيك","الكيكو باي","البسكويت","باي كيك"] },
+  { id:'concentrates', name:'المركزات', lines:["CNA","PET","الصلصة","خط الاسيبتك"] }
+];
+let atpGroups = JSON.parse(JSON.stringify(ATP_DEFAULT_GROUPS));
+let atpSelectedLines = new Set();
+
+function atpNormName(v){ return String(v||'').trim().replace(/\s+/g,' '); }
+function atpLoadGroupsLocal(){
+  try{
+    const saved = localStorage.getItem(ATP_GROUPS_KEY);
+    if(saved){ const g = JSON.parse(saved); if(Array.isArray(g)) atpGroups = g; }
+  }catch(e){}
+}
+function atpApplyCloudGroups(g){
+  if(!Array.isArray(g)) return;
+  atpGroups = g;
+  try{ localStorage.setItem(ATP_GROUPS_KEY, JSON.stringify(atpGroups)); }catch(e){}
+  atpRenderGroups();
+}
+function atpCaptureSelection(){
+  const boxes = document.querySelectorAll('#atpGroupsContainer input[type="checkbox"]');
+  if(boxes.length === 0) return;
+  atpSelectedLines = new Set(Array.from(boxes).filter(i=>i.checked).map(i=>i.value));
+}
+function atpRenderGroups(focusGid){
+  const box = document.getElementById('atpGroupsContainer');
+  if(!box) return;
+  atpCaptureSelection();
+  box.innerHTML = '';
+  if(atpGroups.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'atp-group-block';
+    empty.textContent = 'لا توجد مصانع بعد — أضف مصنعاً من زر "إدارة المصانع والخطوط".';
+    box.appendChild(empty);
+    atpRenderMgr(focusGid);
+    return;
+  }
+  atpGroups.forEach(g=>{
+    const block = document.createElement('div');
+    block.className = 'atp-group-block';
+
+    const head = document.createElement('div');
+    head.className = 'atp-group-head';
+    head.style.marginTop = '0';
+    const title = document.createElement('strong');
+    title.textContent = g.name + ':';
+    head.appendChild(title);
+    const mkBtn = (txt, cls, fn, args)=>{
+      const b = document.createElement('button');
+      b.className = 'btn ' + cls;
+      b.style.cssText = 'padding:6px 14px;font-size:12.5px;';
+      b.textContent = txt;
+      b.setAttribute('data-click', fn);
+      b.setAttribute('data-args', JSON.stringify(args));
+      return b;
+    };
+    head.appendChild(mkBtn('تحديد الكل','ghost','atpToggleGroup',['atpGrp_'+g.id,true]));
+    head.appendChild(mkBtn('إلغاء','ghost','atpToggleGroup',['atpGrp_'+g.id,false]));
+    block.appendChild(head);
+
+    const lines = document.createElement('div');
+    lines.id = 'atpGrp_' + g.id;
+    (g.lines||[]).forEach(name=>{
+      const wrap = document.createElement('span');
+      wrap.className = 'atp-line-item';
+      const lab = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = name;
+      cb.checked = atpSelectedLines.has(name);
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(' ' + name));
+      wrap.appendChild(lab);
+      lines.appendChild(wrap);
+    });
+    if((g.lines||[]).length === 0){
+      const none = document.createElement('span');
+      none.style.opacity = '.7';
+      none.textContent = 'لا توجد خطوط لهذا المصنع بعد.';
+      lines.appendChild(none);
+    }
+    block.appendChild(lines);
+    box.appendChild(block);
+  });
+  atpRenderMgr(focusGid);
+}
+
+/* ---------- manage modal ---------- */
+function atpMgrIsOpen(){
+  const m = document.getElementById('atpMgrModal');
+  return !!(m && m.classList.contains('open'));
+}
+function atpOpenMgr(){
+  document.getElementById('atpMgrModal').classList.add('open');
+  atpRenderMgr();
+}
+function atpCloseMgr(){
+  document.getElementById('atpMgrModal').classList.remove('open');
+}
+function atpRenderMgr(focusGid){
+  const body = document.getElementById('atpMgrBody');
+  if(!body || !atpMgrIsOpen()) return;
+  const ae = document.activeElement;
+  if(!focusGid && ae && body.contains(ae) && ae.tagName === 'INPUT') return; // المستخدم بيكتب — متقاطعوش
+  body.innerHTML = '';
+  if(atpGroups.length === 0){
+    body.textContent = 'لا توجد مصانع بعد — أضف أول مصنع من الحقل بالأعلى.';
+    return;
+  }
+  const mkBtn = (txt, cls, fn, args, title)=>{
+    const b = document.createElement('button');
+    b.className = 'btn ' + cls;
+    b.style.cssText = 'padding:7px 12px;font-size:12.5px;white-space:nowrap;';
+    b.textContent = txt;
+    if(title) b.title = title;
+    b.setAttribute('data-click', fn);
+    b.setAttribute('data-args', JSON.stringify(args));
+    return b;
+  };
+  const mkField = (cls, gid, li, value, placeholder, label)=>{
+    const f = document.createElement('div');
+    f.className = 'field';
+    if(label){ const l = document.createElement('label'); l.style.fontSize = '12px'; l.textContent = label; f.appendChild(l); }
+    const i = document.createElement('input');
+    i.type = 'text'; i.className = cls; i.dataset.gid = gid;
+    if(li !== null) i.dataset.li = String(li);
+    i.value = value; i.placeholder = placeholder || ''; i.autocomplete = 'off';
+    i.style.cssText = 'padding:7px 10px;font-size:13px;';
+    f.appendChild(i);
+    return f;
+  };
+  atpGroups.forEach(g=>{
+    const card = document.createElement('div');
+    card.className = 'atp-mgr-group';
+
+    const gRow = document.createElement('div');
+    gRow.className = 'atp-mgr-row';
+    gRow.style.marginTop = '0';
+    gRow.appendChild(mkField('atp-mgr-gname', g.id, null, g.name, 'اسم المصنع', 'اسم المصنع'));
+    gRow.appendChild(mkBtn('💾 حفظ الاسم','info','atpRenameGroup',[g.id]));
+    gRow.appendChild(mkBtn('🗑 حذف المصنع','danger','atpDeleteGroup',[g.id]));
+    card.appendChild(gRow);
+
+    const lines = document.createElement('div');
+    lines.className = 'atp-mgr-lines';
+    (g.lines||[]).forEach((name, li)=>{
+      const r = document.createElement('div');
+      r.className = 'atp-mgr-row';
+      r.appendChild(mkField('atp-mgr-lname', g.id, li, name, 'اسم الخط'));
+      r.appendChild(mkBtn('💾','info','atpRenameLine',[g.id, li],'حفظ التعديل'));
+      r.appendChild(mkBtn('🗑','danger','atpDeleteLine',[g.id, name],'حذف الخط'));
+      lines.appendChild(r);
+    });
+    const addRow = document.createElement('div');
+    addRow.className = 'atp-mgr-row';
+    addRow.appendChild(mkField('atp-add-line-input', g.id, null, '', 'اسم خط جديد'));
+    addRow.appendChild(mkBtn('➕ إضافة خط','primary','atpAddLine',[g.id]));
+    lines.appendChild(addRow);
+    card.appendChild(lines);
+
+    body.appendChild(card);
+    if(focusGid && focusGid === g.id){
+      const inp = addRow.querySelector('input');
+      if(inp) inp.focus();
+    }
+  });
+}
+
+function atpAllLineNamesLower(exceptGid, exceptIdx){
+  const set = new Set();
+  atpGroups.forEach(g=>(g.lines||[]).forEach((n, i)=>{
+    if(g.id === exceptGid && i === exceptIdx) return;
+    set.add(n.toLowerCase());
+  }));
+  return set;
+}
+
+function atpAddGroup(){
+  const inp = document.getElementById('atpNewGroupName');
+  const name = atpNormName(inp.value);
+  if(!name){ toast('اكتب اسم المصنع أولاً','warning'); return; }
+  if(atpGroups.some(g=>g.name.toLowerCase() === name.toLowerCase())){ toast('هذا المصنع موجود بالفعل','warning'); return; }
+  const id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  atpGroups.push({ id, name, lines:[] });
+  inp.value = '';
+  atpCloudSave();
+  atpRenderGroups(id);
+  toast('تمت إضافة المصنع — أضف له الخطوط الآن','success');
+}
+function atpRenameGroup(gid){
+  const g = atpGroups.find(x=>x.id === gid);
+  if(!g) return;
+  const inp = document.querySelector(`#atpMgrBody .atp-mgr-gname[data-gid="${gid}"]`);
+  const name = atpNormName(inp ? inp.value : '');
+  if(!name){ toast('اسم المصنع لا يمكن أن يكون فارغاً','warning'); return; }
+  if(name === g.name){ toast('لم يتغير الاسم','info'); return; }
+  if(atpGroups.some(x=>x.id !== gid && x.name.toLowerCase() === name.toLowerCase())){ toast('هذا الاسم مستخدم لمصنع آخر','warning'); return; }
+  g.name = name;
+  atpCloudSave();
+  atpRenderGroups();
+  toast('تم تعديل اسم المصنع','success');
+}
+function atpDeleteGroup(gid){
+  const g = atpGroups.find(x=>x.id === gid);
+  if(!g) return;
+  if(!confirm(`هل تريد حذف المصنع "${g.name}" بكل خطوطه (${(g.lines||[]).length})؟\nالتقارير المحفوظة سابقاً لن تتأثر.`)) return;
+  atpCaptureSelection();
+  const hadSelected = (g.lines||[]).some(n=>atpSelectedLines.has(n));
+  (g.lines||[]).forEach(n=>atpSelectedLines.delete(n));
+  atpGroups = atpGroups.filter(x=>x.id !== gid);
+  atpCloudSave();
+  atpRenderGroups();
+  if(hadSelected && document.getElementById('atpMonthInput').value) atpAutoUpdateReport();
+}
+function atpAddLine(gid){
+  const g = atpGroups.find(x=>x.id === gid);
+  if(!g) return;
+  const inp = document.querySelector(`#atpMgrBody .atp-add-line-input[data-gid="${gid}"]`);
+  const name = atpNormName(inp ? inp.value : '');
+  if(!name){ toast('اكتب اسم الخط أولاً','warning'); return; }
+  if(atpAllLineNamesLower().has(name.toLowerCase())){ toast('اسم الخط موجود بالفعل (الأسماء لازم تكون غير متكررة)','warning'); return; }
+  g.lines = g.lines || [];
+  g.lines.push(name);
+  atpCloudSave();
+  atpRenderGroups(gid);
+}
+function atpRenameLine(gid, li){
+  const g = atpGroups.find(x=>x.id === gid);
+  if(!g || !g.lines || g.lines[li] === undefined) return;
+  const inp = document.querySelector(`#atpMgrBody .atp-mgr-lname[data-gid="${gid}"][data-li="${li}"]`);
+  const name = atpNormName(inp ? inp.value : '');
+  const old = g.lines[li];
+  if(!name){ toast('اسم الخط لا يمكن أن يكون فارغاً','warning'); return; }
+  if(name === old){ toast('لم يتغير الاسم','info'); return; }
+  if(atpAllLineNamesLower(gid, li).has(name.toLowerCase())){ toast('اسم الخط موجود بالفعل','warning'); return; }
+  atpCaptureSelection();
+  const wasSelected = atpSelectedLines.has(old);
+  atpSelectedLines.delete(old);
+  if(wasSelected) atpSelectedLines.add(name);
+  g.lines[li] = name;
+  /* لو الخط ده ظاهر فى التقرير المفتوح، ننقل بياناته للاسم الجديد بدل ما يتولد من جديد */
+  const row = (atpReportData.rows || []).find(r=>r.name === old);
+  if(row && wasSelected){
+    row.name = name;
+    atpRemovedCells = new Set(Array.from(atpRemovedCells).map(k=>{
+      const cut = k.lastIndexOf('-');
+      return k.substring(0, cut) === old ? name + k.substring(cut) : k;
+    }));
+  }
+  atpCloudSave();
+  atpRenderGroups();
+  if(row && wasSelected && document.getElementById('atpMonthInput').value) atpAutoUpdateReport();
+  toast('تم تعديل اسم الخط','success');
+}
+function atpDeleteLine(gid, name){
+  const g = atpGroups.find(x=>x.id === gid);
+  if(!g) return;
+  if(!confirm(`هل تريد حذف الخط "${name}" من المصنع "${g.name}"؟\nالتقارير المحفوظة سابقاً لن تتأثر.`)) return;
+  atpCaptureSelection();
+  const wasSelected = atpSelectedLines.has(name);
+  atpSelectedLines.delete(name);
+  g.lines = (g.lines||[]).filter(n=>n !== name);
+  atpCloudSave();
+  atpRenderGroups();
+  if(wasSelected && document.getElementById('atpMonthInput').value) atpAutoUpdateReport();
+}
+
 async function atpCloudLoad(){
   const { data, error } = await sb.from("atp_reports").select("record").eq("id","main_store").maybeSingle();
   if(error || !data) return null;
@@ -6206,9 +6447,10 @@ async function atpCloudLoad(){
 async function atpCloudSave(){
   atpIsSaving = true;
   const updatedAt = Date.now();
-  const payload = { vacations: atpVacations, reportsHistory: atpReportsHistory, updatedAt };
+  const payload = { vacations: atpVacations, reportsHistory: atpReportsHistory, groups: atpGroups, updatedAt };
   localStorage.setItem(ATP_VACATIONS_KEY, JSON.stringify(atpVacations));
   localStorage.setItem(ATP_HISTORY_KEY, JSON.stringify(atpReportsHistory));
+  localStorage.setItem(ATP_GROUPS_KEY, JSON.stringify(atpGroups));
   atpSetSyncStatus('⏳ جاري المزامنة...', true);
   const { error } = await sb.from("atp_reports").upsert({ id:'main_store', record: payload, updated_at: updatedAt });
   if(!error){
@@ -6238,6 +6480,7 @@ async function atpLoadPersistedState(){
     if(Array.isArray(cloudData.vacations)) atpVacations = cloudData.vacations;
     if(cloudData.reportsHistory && typeof cloudData.reportsHistory === 'object') atpReportsHistory = cloudData.reportsHistory;
     if(cloudData.updatedAt) atpLastKnownUpdatedAt = cloudData.updatedAt;
+    atpApplyCloudGroups(cloudData.groups);
     localStorage.setItem(ATP_VACATIONS_KEY, JSON.stringify(atpVacations));
     localStorage.setItem(ATP_HISTORY_KEY, JSON.stringify(atpReportsHistory));
     atpUpdateVacationList();
@@ -6256,6 +6499,7 @@ async function atpPollCloud(){
   atpLastKnownUpdatedAt = data.updatedAt;
   if(Array.isArray(data.vacations)) atpVacations = data.vacations;
   if(data.reportsHistory && typeof data.reportsHistory === 'object') atpReportsHistory = data.reportsHistory;
+  atpApplyCloudGroups(data.groups);
   localStorage.setItem(ATP_VACATIONS_KEY, JSON.stringify(atpVacations));
   localStorage.setItem(ATP_HISTORY_KEY, JSON.stringify(atpReportsHistory));
   atpUpdateVacationList();
@@ -6431,7 +6675,7 @@ function atpUpdateVacationList(){
 }
 
 function atpToggleGroup(id, status){
-  document.querySelectorAll(`#${id} input`).forEach(i=>i.checked = status);
+  document.querySelectorAll(`#${id} input[type="checkbox"]`).forEach(i=>i.checked = status);
   atpAutoUpdateReport();
 }
 
@@ -6471,7 +6715,7 @@ function atpAutoUpdateReport(){
 
   const saturdays = atpComputeSaturdays(monthVal);
   const daysChanged = JSON.stringify(saturdays) !== JSON.stringify(atpReportData.days || []);
-  const checkedValues = Array.from(document.querySelectorAll('#atpBakery input:checked, #atpConcentrates input:checked')).map(i=>i.value);
+  const checkedValues = Array.from(document.querySelectorAll('#atpGroupsContainer input[type="checkbox"]:checked')).map(i=>i.value);
 
   if(daysChanged){
     const rows = checkedValues.map(name=>({ name, cells: atpMakeFreshCells(saturdays.length) }));
@@ -6508,7 +6752,7 @@ function atpGenerateReport(){
     const monthVal = document.getElementById('atpMonthInput').value;
     if(!monthVal){ toast("يرجى اختيار الشهر","warning"); return; }
     const saturdays = atpComputeSaturdays(monthVal);
-    const checkedValues = Array.from(document.querySelectorAll('#atpBakery input:checked, #atpConcentrates input:checked')).map(i=>i.value);
+    const checkedValues = Array.from(document.querySelectorAll('#atpGroupsContainer input[type="checkbox"]:checked')).map(i=>i.value);
     const rows = checkedValues.map(name=>({ name, cells: atpMakeFreshCells(saturdays.length) }));
 
     atpReportData = { days: saturdays, rows, samplerNames: saturdays.map(()=>ATP_DEFAULT_SAMPLER_NAME) };
@@ -6773,9 +7017,24 @@ function initAtpPage(){
   if(atpInitialized) return;
   atpInitialized = true;
   document.getElementById('atpMonthInput').addEventListener('change', atpAutoUpdateReport);
-  document.querySelectorAll('#atpBakery input, #atpConcentrates input').forEach(cb=>{
-    cb.addEventListener('change', atpAutoUpdateReport);
+  const grpBox = document.getElementById('atpGroupsContainer');
+  grpBox.addEventListener('change', (e)=>{
+    if(e.target && e.target.matches('input[type="checkbox"]')) atpAutoUpdateReport();
   });
+  const mgrBody = document.getElementById('atpMgrBody');
+  mgrBody.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter' || !e.target || !e.target.dataset) return;
+    const gid = e.target.dataset.gid;
+    if(e.target.classList.contains('atp-add-line-input')){ e.preventDefault(); atpAddLine(gid); }
+    else if(e.target.classList.contains('atp-mgr-lname')){ e.preventDefault(); atpRenameLine(gid, Number(e.target.dataset.li)); }
+    else if(e.target.classList.contains('atp-mgr-gname')){ e.preventDefault(); atpRenameGroup(gid); }
+  });
+  document.getElementById('atpNewGroupName').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); atpAddGroup(); }
+  });
+  document.getElementById('btnAtpMgrClose').addEventListener('click', atpCloseMgr);
+  atpLoadGroupsLocal();
+  atpRenderGroups();
   atpLoadPersistedState();
   if(!atpPollTimer) atpPollTimer = setInterval(atpPollCloud, 60000);
 }
