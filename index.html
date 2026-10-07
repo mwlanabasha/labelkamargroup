@@ -2978,7 +2978,7 @@ document.addEventListener("change", (e)=>{
   if(el.dataset.args){
     try{ args = JSON.parse(el.dataset.args); }catch(err){ console.error("data-args JSON parse error", err, el.dataset.args); }
   }
-  args = args.map(a => a === "__CHECKED__" ? el.checked : a);
+  args = args.map(a => a === "__CHECKED__" ? el.checked : a === "__VAL__" ? el.value : a === "__THIS__" ? el : a);
   fn.apply(null, args);
 });
 const TABLE = "disposal_reports";
