@@ -1723,7 +1723,6 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <button class="btn primary" id="btnArbSearchGo">🔍 بحث</button>
               <button class="btn info" id="btnArbSearchExportExcel">📊 Excel</button>
               <button class="btn info" id="btnArbSearchExportOfficial">📄 نفس تقرير النموذج</button>
-              <button class="btn info" id="btnArbSearchExportPdf">🖨️ PDF البحث بالكامل</button>
               <button class="btn ghost admin-only-btn" id="btnArbSelectToggle" style="display:none;">تحديد الكل</button>
               <button class="btn danger admin-only-btn" id="btnArbDeleteSelected" style="display:none;">حذف المحدد (<span id="arbSelectedCount">0</span>)</button>
             </div>
@@ -1772,7 +1771,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <div class="atp-print-title-frame">نموذج متابعة جهاز ATP</div>
 
           <div class="panel atp-page-header-inner">
-            <div class="atp-legend">مطابق = <span class="math-expr">RLU اقل من 50</span></div>
+            <div class="atp-legend">مطابق = أقل من 50&nbsp; <bdi dir="ltr">RLU</bdi> اختصاراً لــــ&nbsp; <bdi dir="ltr">(Relative Light Units)</bdi></div>
           </div>
 
           <div class="panel no-print">
@@ -6894,7 +6893,7 @@ function atpBuildPdfPageHTML(rowsHtml, includeFootAndSigs){
 
   return `
     <div style="border:1px solid #000;padding:8px;text-align:center;font-weight:bold;font-size:18px;margin-bottom:14px;color:#000;">نموذج متابعة جهاز ATP</div>
-    <div style="text-align:center;font-weight:bold;font-size:13px;margin-bottom:10px;color:#000;">مطابق = <span style="direction:ltr;unicode-bidi:embed;display:inline-block;">RLU اقل من 50</span></div>
+    <div style="text-align:center;font-weight:bold;font-size:13px;margin-bottom:10px;color:#000;">مطابق = أقل من 50&nbsp; <bdi dir="ltr">RLU</bdi> اختصاراً لــــ&nbsp; <bdi dir="ltr">(Relative Light Units)</bdi></div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
       <thead><tr>${headerRow1}</tr><tr>${headerRow2}</tr></thead>
       <tbody>${rowsHtml}</tbody>
@@ -9674,96 +9673,6 @@ async function fetchAllMatchingArbSessions(){
   }
   return all;
 }
-
-/* PDF — the whole search, rendered as one report per رقم النموذج using the
-   exact same template as the form (identical to btnArbSearchExportOfficial but
-   via the print window instead of an .xlsx). Covers both modes. */
-bindBusyClick("btnArbSearchExportPdf", async ()=>{
-  if(arbSearchTotalSessions===0){ toast("لا توجد بيانات للتصدير","warning"); return; }
-  showSpinner(true);
-  try{
-    await ensureExcelJs();
-    const sessions = await fetchAllMatchingArbSessions();
-    if(sessions.length===0){ toast("لا توجد بيانات مطابقة للتصدير","warning"); return; }
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "نظام إدارة المعمل";
-    wb.created = new Date();
-    const tablesHtml = sessions.map(sess=>{
-      let sheet;
-      if(arbSearchMode === "sensory"){
-        sheet = arbBuildSensorySheet(wb, {
-          formNo: sess.form_no,
-          productName: sess.product_name || "",
-          officialName: sess.official_name || "",
-          judgingDate: sess.judging_date,
-          productionDate: sess.production_date,
-          goal: sess.goal || "",
-          details: sess.details || "",
-          opinions: sess.opinions || []
-        }, `نموذج ${sess.form_no}`);
-      } else {
-        sheet = arbBuildPreferentialSheet(wb, {
-          official: sess.official_name || "",
-          judgingDate: sess.judging_date,
-          formNo: sess.form_no,
-          generalNotes: sess.general_notes || "",
-          samples: sess.samples || [],
-          opinions: sess.opinions || []
-        }, `نموذج ${sess.form_no}`);
-      }
-      return excelSheetToHtmlTable(sheet);
-    }).map(t=>`<div class="sheet-wrap">${t}</div>`).join("");
-    const title = arbSearchMode === "sensory" ? "بحث_تحكيم_عينات_عادى" : "بحث_تحكيم_عينات_بالأفضلية";
-    const win = window.open("", "_blank", "width=1200,height=900");
-    if(!win){ toast("يرجى السماح بالنوافذ المنبثقة للطباعة","warning"); return; }
-    win.document.write(`<!DOCTYPE html>
-<html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-<title>${escapeHtml(title)}.pdf</title>
-<style>
-  @page{ size:A4 landscape; margin:5mm 5mm 4mm 5mm; }
-  @media print{
-    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-    html,body{ margin:0; padding:0 !important; }
-    .no-print{ display:none !important; }
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; background:#fff; }
-  body{ font-family:Arial,'Segoe UI',Tahoma,sans-serif; }
-  .sheet-wrap{ display:flex; justify-content:center; align-items:flex-start; page-break-inside:avoid; }
-  .sheet-wrap + .sheet-wrap{ page-break-before:always; }
-  table{ border-collapse:collapse; margin:0 auto; page-break-inside:avoid; }
-  td, th{ padding:2px 4px; text-align:center; }
-  .no-print{ text-align:center; margin-top:12px; }
-  .no-print button{
-    padding:10px 28px; font-size:14px; font-weight:700; border:none; border-radius:6px;
-    cursor:pointer; margin:0 6px; display:none;
-  }
-</style></head>
-<body>
-  ${tablesHtml}
-  <div class="no-print"><button onclick="window.print();window.close();">حفظ كـ PDF</button></div>
-  <script>document.title = "${escapeHtml(title)}.pdf";
-    setTimeout(function(){
-      var wraps = document.querySelectorAll('.sheet-wrap'), pw = 1122.52 - 37.8, ph = 793.7 - 34;
-      for(var i=0;i<wraps.length;i++){
-        var t = wraps[i].firstElementChild;
-        if(t){
-          var s = Math.min(pw / t.offsetWidth, ph / t.offsetHeight);
-          if(s < 1) wraps[i].style.zoom = s;
-        }
-      }
-      window.print();
-    }, 300);<\/script>
-</body></html>`);
-    win.document.close();
-    toast("تم تجهيز ملف PDF بنجاح","success");
-  } catch(err){
-    console.error(err);
-    toast("خطأ أثناء تجهيز الملف: "+err.message,"error");
-  } finally {
-    showSpinner(false);
-  }
-});
 
 /* initial render for this module (UI-only, safe before login) */
 renderArbSOpinions();
