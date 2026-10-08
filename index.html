@@ -245,6 +245,39 @@ BEGIN
 END;
 $$;
 
+
+-- =====================================================================
+-- 7. أمر تكليف إضافي (Extra Assignment Orders) — شغّل مرة واحدة فى SQL Editor
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS eo_employees (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  job_title TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS eo_orders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  shift TEXT NOT NULL,
+  order_date DATE NOT NULL,
+  day_name TEXT,
+  emp_code TEXT NOT NULL,
+  emp_name TEXT NOT NULL,
+  job_title TEXT,
+  order_type TEXT NOT NULL,
+  work_desc TEXT NOT NULL,
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+-- لو الجدول متعمل قبل كده، السطر ده بيضيف عمود "أضيف بواسطة" (آمن لو اتشغّل أكتر من مرة)
+ALTER TABLE eo_orders ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE eo_employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE eo_orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "eo_employees auth all" ON eo_employees;
+CREATE POLICY "eo_employees auth all" ON eo_employees FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "eo_orders auth all" ON eo_orders;
+CREATE POLICY "eo_orders auth all" ON eo_orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -675,7 +708,7 @@ tbody tr:hover{background:#ffe9f2;}
 /* ===== TOAST ===== */
 #toast-wrap{position:fixed;bottom:20px;left:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
 .toast{padding:12px 18px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;box-shadow:var(--shadow);
-  animation:slideIn .2s ease;}
+  animation:slideIn .12s ease-out;}
 .toast.success{background:#2e7d32;}
 .toast.error{background:#c62828;}
 .toast.warning{background:#f9a825;color:#222;}
@@ -714,7 +747,7 @@ tbody tr:hover{background:#ffe9f2;}
 /* ===== EDIT MODAL ===== */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:8000;padding:16px;}
 .modal-overlay.open{display:flex;}
-.modal-box{position:relative;background:var(--bg-panel);border-radius:10px;padding:18px;width:100%;max-width:760px;max-height:90vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:modalIn .2s ease;}
+.modal-box{position:relative;background:var(--bg-panel);border-radius:10px;padding:18px;width:100%;max-width:760px;max-height:90vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:modalIn .12s ease-out;}
 .modal-x-close{position:absolute;top:12px;right:14px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid var(--danger,#e53935);cursor:pointer;font-size:16px;line-height:1;font-weight:900;color:var(--danger,#e53935);background:var(--bg-panel);box-shadow:0 1px 5px rgba(0,0,0,.18);transition:background .15s,color .15s,transform .1s;z-index:6;user-select:none;}
 .modal-x-close:hover{background:var(--danger,#e53935);color:#fff;}
 .modal-x-close:active{transform:scale(.92);}
@@ -997,6 +1030,13 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   .table-wrap td.admin-select-col{justify-content:flex-start;}
   .modal-box .table-wrap{overflow:visible !important;border:none;}
 }
+
+.eo-sugg{position:absolute;inset-inline:0;top:100%;z-index:60;background:var(--bg-panel);border:1px solid var(--border-thin);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.25);max-height:240px;overflow-y:auto;display:none;}
+.eo-sugg.open{display:block;}
+.eo-sugg div{padding:7px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px solid var(--grid-row-alt);}
+.eo-sugg div:last-child{border-bottom:0;}
+.eo-sugg div.active,.eo-sugg div:hover{background:var(--sidebar-active);color:#fff;}
+.eo-sugg small{opacity:.8;font-size:12px;}
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111417">
@@ -1046,7 +1086,8 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
     <div class="nav-item" data-page="atp"><span class="ic">✅</span> ATP</div>
     <div class="nav-item" data-page="settings"><span class="ic">⚙️</span> الإعدادات</div>
     <div class="nav-item" data-page="samples"><span class="ic">🔬</span> غرفة العينات</div>
-    <div class="nav-item" data-page="users" id="navUsers" style="display:none;"><span class="ic">👤</span> إدارة المستخدمين</div>
+    <div class="nav-item" data-page="extraorders"><span class="ic">📝</span> أمر تكليف إضافي</div>
+<div class="nav-item" data-page="users" id="navUsers" style="display:none;"><span class="ic">👤</span> إدارة المستخدمين</div>
   </nav>
 
   <div id="main">
@@ -1764,6 +1805,49 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
         </div>
       </div>
 
+      <div class="page" id="page-extraorders">
+        <div class="btn-row">
+          <button class="btn primary" id="btnEoOpenEmps">👥 إضافة / إدارة الموظفين (كود - اسم - وظيفة)</button>
+        </div>
+        <div class="panel">
+          <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+            <div class="field"><label>الوردية</label><select id="eo_shift"><option>صباحية</option><option>مسائية</option></select></div>
+            <div class="field"><label>التاريخ</label><input type="date" id="eo_date"></div>
+            <div class="field readonly-field"><label>اليوم</label><input id="eo_day" readonly></div>
+            <div class="field"><label>كود الموظف</label><select id="eo_code"></select><span id="eo_hint" style="font-size:12px;min-height:16px;"></span></div>
+            <div class="field readonly-field"><label>اسم الموظف</label><input id="eo_name" readonly placeholder="يظهر تلقائياً"></div>
+            <div class="field readonly-field"><label>الوظيفة</label><input id="eo_job" readonly placeholder="تظهر تلقائياً"></div>
+            <div class="field"><label>نوع أمر التكليف</label><select id="eo_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
+            <div class="field" style="grid-column:1/-1;"><label>العمل المكلف به</label><textarea id="eo_work" rows="3"></textarea></div>
+          </div>
+          <div class="btn-row"><button class="btn primary" id="btnEoSave">💾 حفظ أمر التكليف</button></div>
+        </div>
+        <div class="panel">
+          <div class="btn-row" style="margin-bottom:10px;">
+            <button class="btn info" id="btnEoExport">📤 تنزيل السجل والبيانات (Excel)</button>
+          </div>
+          <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;">
+            <div class="field"><label>من تاريخ</label><input type="date" id="eoF_from"></div>
+            <div class="field"><label>إلى تاريخ</label><input type="date" id="eoF_to"></div>
+            <div class="field"><label>كود الموظف</label><input id="eoF_code" autocomplete="off" placeholder="بحث بالكود"></div>
+            <div class="field"><label>اسم الموظف</label><input id="eoF_name" autocomplete="off" placeholder="بحث بالاسم"></div>
+            <div class="field"><label>الوردية</label><select id="eoF_shift"><option>صباحية</option><option>مسائية</option></select></div>
+            <div class="field"><label>نوع أمر التكليف</label><select id="eoF_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
+            <div class="field" style="flex-direction:row;gap:8px;align-items:end;">
+              <button class="btn primary" id="btnEoSearch">🔍 بحث</button>
+              <button class="btn ghost" id="btnEoClear">مسح</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="table-wrap"><table>
+            <thead><tr><th>التاريخ</th><th>اليوم</th><th>الوردية</th><th>الكود</th><th>الاسم</th><th>الوظيفة</th><th>النوع</th><th>العمل المكلف به</th><th>أضيف بواسطة</th><th>وقت الإضافة</th><th>الإجراءات</th></tr></thead>
+            <tbody id="eoOrdersBody"></tbody>
+          </table></div>
+          <div class="total-bar">عدد الأوامر = <span id="eoCount">0</span></div>
+        </div>
+      </div>
+
       <div class="page" id="page-micro"><div class="panel">شاشة "فحص الميكروبيولوجى" — قيد الإنشاء فى المرحلة القادمة.</div></div>
       <div class="page" id="page-atp">
         <div id="atpPageContainer">
@@ -1874,14 +1958,16 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <div class="panel">
               <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end;">
                 <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpM_prod_filter"></div>
-                <div class="field" style="justify-content:flex-end;"><button class="btn primary" id="btnSmpManualSearch">بحث</button></div>
+                <div class="field" style="justify-content:flex-end;"><div class="btn-row"><button class="btn primary" id="btnSmpManualSearch">بحث</button>
+<button class="btn ghost" id="btnSmpListToggleM">تحديد الكل</button>
+<button class="btn danger" id="btnSmpListDeleteM">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div></div>
               </div>
             </div>
             <div class="panel">
               <div class="table-wrap">
                 <table id="smpManualTable">
                   <thead><tr>
-                    <th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th>تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                     <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
                   </tr></thead>
                   <tbody id="smpManualTableBody"></tbody>
@@ -1901,13 +1987,15 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
                 يعرض هذا القسم العينات المستحق فحصها اليوم (أو المتأخر فحصها) طبقاً لفترات الحفظ المعتمدة:
                 <b id="smpLifeStagesLabel"></b> يوماً من تاريخ الإنتاج.
               </div>
-              <div class="btn-row"><button class="btn primary" id="btnSmpScheduleSearch">🔄 تحديث القائمة</button></div>
+              <div class="btn-row"><button class="btn primary" id="btnSmpScheduleSearch">🔄 تحديث القائمة</button>
+<button class="btn ghost" id="btnSmpListToggleS">تحديد الكل</button>
+<button class="btn danger" id="btnSmpListDeleteS">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div>
             </div>
             <div class="panel">
               <div class="table-wrap">
                 <table id="smpScheduleTable">
                   <thead><tr>
-                    <th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th>تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                     <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
                   </tr></thead>
                   <tbody id="smpScheduleTableBody"></tbody>
@@ -2005,12 +2093,15 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <button class="btn ghost" id="btnSmpSearchReset">تراجع</button>
               <button class="btn ghost" id="btnSmpSearchBack">🔙 رجوع للقائمة</button>
               <button class="btn info" id="btnSmpSearchExportExcel">📊 Excel</button>
+              <button class="btn ghost" id="btnSmpSelectToggle">تحديد الكل</button>
+              <button class="btn danger" id="btnSmpDeleteSelected">🗑️ حذف المحدد (<span id="smpSelectedCount">0</span>)</button>
             </div>
           </div>
           <div class="panel">
             <div class="table-wrap">
               <table id="smpSearchTable">
                 <thead><tr>
+                  <th>تحديد</th>
                   <th>رقم العينة</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                   <th>تاريخ الإنتاج</th><th>تاريخ الإنتهاء</th><th>الاتجاه</th><th>الوزن</th><th>رقم التشغيلة</th><th>تاريخ آخر فحص</th><th>إجراءات</th>
                 </tr></thead>
@@ -2731,6 +2822,10 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   <div class="modal-box" style="max-width:480px;">
     <span class="modal-x-close" data-close-target="btnCancelPermissions" title="إغلاق">✕</span>
     <div class="modal-title">صلاحيات الوصول للصفحات — <span id="permUserLabel"></span></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button type="button" class="btn info" id="btnPermSelectAll" style="padding:6px 14px;">✔ تحديد الكل</button>
+      <button type="button" class="btn ghost" id="btnPermDeselectAll" style="padding:6px 14px;">✖ إلغاء تحديد الكل</button>
+    </div>
     <div id="permCheckboxList" style="display:flex;flex-direction:column;gap:10px;"></div>
     <div class="btn-row">
       <button class="btn primary" id="btnSavePermissions">حفظ الصلاحيات</button>
@@ -2840,6 +2935,47 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
       <table><thead><tr><th class="name-col">اسم القسم</th><th class="action-col">الإجراءات</th></tr></thead><tbody id="smpDeptTableBody"></tbody></table>
     </div>
     <div class="btn-row"><button class="btn ghost" id="btnSmpDeptClose" style="padding:7px 14px;font-size:12px;">إغلاق</button></div>
+  </div>
+</div>
+
+<!-- extra orders: employees admin -->
+<div id="eoEmpModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:900px; width:96%;">
+    <span class="modal-x-close" data-close-target="btnEoEmpClose" title="إغلاق">✕</span>
+    <div class="modal-title"><span>الموظفين</span> <span class="badge-count" id="eoEmpCount" style="margin-inline-start:0;font-size:11px;">0</span></div>
+    <div class="field-grid" style="grid-template-columns:1fr 2fr 2fr auto;gap:10px 12px;align-items:end;">
+      <div class="field"><label style="font-size:12px;">كود الموظف</label><input id="eoE_code" autocomplete="off"></div>
+      <div class="field"><label style="font-size:12px;">اسم الموظف</label><input id="eoE_name" autocomplete="off"></div>
+      <div class="field"><label style="font-size:12px;">الوظيفة</label><input id="eoE_job" autocomplete="off"></div>
+      <div class="field"><button class="btn primary" id="btnEoEmpAdd" style="white-space:nowrap;padding:7px 14px;font-size:12px;">إضافة</button></div>
+    </div>
+    <div class="field" style="margin-top:8px;"><input id="eoE_search" placeholder="🔍 بحث بالكود أو الاسم"></div>
+    <div class="table-wrap" style="margin-top:8px;max-height:50vh;overflow:auto;">
+      <table><thead><tr><th>الكود</th><th class="name-col">الاسم</th><th class="name-col">الوظيفة</th><th class="action-col">الإجراءات</th></tr></thead><tbody id="eoEmpBody"></tbody></table>
+    </div>
+    <div class="btn-row"><button class="btn ghost" id="btnEoEmpClose" style="padding:7px 14px;font-size:12px;">إغلاق</button></div>
+  </div>
+</div>
+
+<!-- extra orders: edit order -->
+<div id="eoEditModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:900px; width:96%; max-height:92vh; overflow:auto;">
+    <span class="modal-x-close" data-close-target="btnEoEditCancel" title="إغلاق">✕</span>
+    <div class="modal-title">تعديل أمر التكليف</div>
+    <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+      <div class="field"><label>الوردية</label><select id="eoU_shift"><option>صباحية</option><option>مسائية</option></select></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="eoU_date"></div>
+      <div class="field readonly-field"><label>اليوم</label><input id="eoU_day" readonly></div>
+      <div class="field"><label>كود الموظف</label><select id="eoU_code"></select><span id="eoU_hint" style="font-size:12px;min-height:16px;"></span></div>
+      <div class="field readonly-field"><label>اسم الموظف</label><input id="eoU_name" readonly></div>
+      <div class="field readonly-field"><label>الوظيفة</label><input id="eoU_job" readonly></div>
+      <div class="field"><label>نوع أمر التكليف</label><select id="eoU_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
+      <div class="field" style="grid-column:1/-1;"><label>العمل المكلف به</label><textarea id="eoU_work" rows="3"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnEoEditSave">💾 حفظ التعديلات</button>
+      <button class="btn ghost" id="btnEoEditCancel">إلغاء</button>
+    </div>
   </div>
 </div>
 
@@ -3170,6 +3306,7 @@ async function enterApp(){
     else { setTimeout(fn, 0); }
   };
   idleWork(()=>{ refreshAllDatalists(); });
+  idleWork(()=>{ ensureExcelJs().catch(()=>{}); });   // warm the Excel library so exports don't wait for the download
   idleWork(()=>{ loadDashboardStats(); });
   updateReportNumberPreview();
   let restoredFromInactivity = false;
@@ -3889,9 +4026,9 @@ function openPrintWindow(titleText, bodyHtml){
 const pageTitles = {
   dashboard:"الرئيسية", receiving:"تسجيل استلامات الخامات", disposal:"تسجيل محاضر العزل والإعدام",
   nonconformity:"حالات عدم المطابقة", arbitration:"تحكيم العينات", micro:"فحص الميكروبيولوجى",
-  atp:"ATP", reports:"التقارير", settings:"الإعدادات", samples:"غرفة العينات", users:"إدارة المستخدمين"
+  atp:"ATP", reports:"التقارير", settings:"الإعدادات", samples:"غرفة العينات", users:"إدارة المستخدمين", extraorders:"أمر تكليف إضافي"
 };
-const PAGE_KEYS = ["dashboard","receiving","disposal","nonconformity","arbitration","micro","atp","reports","settings","samples"];
+const PAGE_KEYS = ["dashboard","receiving","disposal","nonconformity","arbitration","micro","atp","reports","settings","samples","extraorders"];
 let __lastActivePage = "dashboard";
 
 function goto(page){
@@ -3914,6 +4051,7 @@ function goto(page){
   if(page==="arbitration") initArbitrationPage();
   if(page==="nonconformity") initNcPage();
   if(page==="samples") initSamplesPage();
+  if(page==="extraorders") initExtraOrdersPage();
 }
 document.querySelectorAll(".nav-item").forEach(n=>n.addEventListener("click", ()=>goto(n.dataset.page)));
 document.querySelectorAll(".dash-card").forEach(c=>c.addEventListener("click", ()=>goto(c.dataset.goto)));
@@ -3940,6 +4078,11 @@ function closePermissionsModal(){
   document.getElementById("permissionsModal").classList.remove("open");
 }
 document.getElementById("btnCancelPermissions").addEventListener("click", closePermissionsModal);
+function setAllPermChecks(v){
+  document.querySelectorAll("#permCheckboxList input[type=checkbox]").forEach(cb=>{ cb.checked = v; });
+}
+document.getElementById("btnPermSelectAll").addEventListener("click", ()=>setAllPermChecks(true));
+document.getElementById("btnPermDeselectAll").addEventListener("click", ()=>setAllPermChecks(false));
 document.getElementById("permissionsModal").addEventListener("click", (e)=>{
   if(false && e.target.id === "permissionsModal") closePermissionsModal();
 });
@@ -4634,7 +4777,8 @@ document.getElementById("tabSearch").addEventListener("click", ()=>{
   document.getElementById("tabNew").classList.remove("active");
   document.getElementById("disposalSearch").style.display = "";
   document.getElementById("disposalNew").style.display = "none";
-  runSearch();
+  if(searchResults.length) renderSearchTable(); /* instant paint of last results */
+  runSearch({ silent:true });
 });
 document.getElementById("tabGotoReports").addEventListener("click", ()=>goto("reports"));
 
@@ -5137,6 +5281,19 @@ async function insertImageRows(rows){
   return error ? 0 : (data ? data.length : 0);
 }
 
+/* ===== FAST SEARCH-ENTRY HELPERS =====
+   Rows render as soon as the page query returns. The expensive
+   exact-count / totals query runs in the background and only updates
+   the totals + pager when it finishes. */
+function setSearchLoadingRow(tbodyId){
+  const tb = document.getElementById(tbodyId); if(!tb) return;
+  if(tb.children.length) return; /* keep previous rows visible on re-entry */
+  const t = tb.closest("table");
+  const n = t ? (t.querySelectorAll("thead th").length || 1) : 1;
+  tb.innerHTML = `<tr><td colspan="${n}" style="text-align:center;opacity:.7;padding:18px;">جارٍ التحميل...</td></tr>`;
+}
+function setPendingText(ids){ ids.forEach(id=>{ const e=document.getElementById(id); if(e) e.textContent="…"; }); }
+
 /* =========================================================
    SEARCH MODE
 ========================================================= */
@@ -5242,8 +5399,9 @@ function buildSearchTotalsParams(){
   };
 }
 
-async function fetchSearchPage(){
-  showSpinner(true);
+async function fetchSearchPage(opts){
+  const silent = !!(opts && opts.silent === true);
+  if(silent) setSearchLoadingRow("searchTableBody"); else showSpinner(true);
   const pageSize = getConfiguredPageSize();
   const orderCol = sortKey || "report_date";
   const ascending = sortKey ? sortDir > 0 : false;
@@ -5252,44 +5410,51 @@ async function fetchSearchPage(){
   let pageQ = sb.from(TABLE).select("id,report_number,report_date,receipt_date,approval_date,delivery_person,department,product_name,quantity,quantity_notes,direction,general_notes,created_by");
   pageQ = applySearchFilters(pageQ).order(orderCol, { ascending }).range(start, start + pageSize - 1);
 
-  // The count/quantity-sum query scans every matching row, so it's the
-  // expensive part. Filters don't change on a plain next/prev page click,
-  // so skip re-running it and reuse the totals from the last search.
   const sig = computeSearchFilterSignature();
   const needCount = sig !== lastSearchFilterSignature;
-  let aggP = null;
-  if(needCount){
-    aggP = sb.rpc("get_disposal_search_total", buildSearchTotalsParams());
-  }
 
   const usernamesP = getUsernameMap();
-  const [pageRes, aggRes] = await Promise.all([pageQ, needCount ? aggP : Promise.resolve(null)]);
+  const pageRes = await pageQ;
   if(pageRes.error){ showSpinner(false); toast("خطأ فى البحث: "+pageRes.error.message,"error"); return; }
 
   const usernames = await usernamesP;
   searchResults = (pageRes.data||[]).map(r=>({ ...r, creator:{ username: usernames[r.created_by] || "" } }));
 
+  let pending = false;
   if(needCount){
-    lastSearchFilterSignature = sig;
-    const summary = (!aggRes || aggRes.error) ? null : (Array.isArray(aggRes.data) ? aggRes.data[0] : aggRes.data);
-    if(summary){
-      searchTotalCount = Number(summary.total_count ?? searchResults.length);
-      searchTotalQty = Number(summary.total_qty ?? 0);
-    } else {
-      /* RPC totals not available — fall back to page-only totals rather than
-         downloading every matching row just to count them. */
+    if(start === 0 && searchResults.length < pageSize){
+      /* whole result fits in the first page: exact totals, no extra query */
       searchTotalCount = searchResults.length;
       searchTotalQty = searchResults.reduce((s,r)=>s+Number(r.quantity||0),0);
+      lastSearchFilterSignature = sig;
+    } else {
+      pending = true;
+      searchTotalCount = start + searchResults.length + (searchResults.length >= pageSize ? 1 : 0);
+      searchTotalQty = 0;
+      Promise.resolve(sb.rpc("get_disposal_search_total", buildSearchTotalsParams())).then(aggRes=>{
+        if(computeSearchFilterSignature() !== sig) return; /* filters changed meanwhile */
+        const summary = (!aggRes || aggRes.error) ? null : (Array.isArray(aggRes.data) ? aggRes.data[0] : aggRes.data);
+        if(summary){
+          searchTotalCount = Number(summary.total_count ?? searchResults.length);
+          searchTotalQty = Number(summary.total_qty ?? 0);
+        } else {
+          searchTotalCount = start + searchResults.length;
+          searchTotalQty = searchResults.reduce((s,r)=>s+Number(r.quantity||0),0);
+        }
+        lastSearchFilterSignature = sig;
+        renderSearchTable();
+      }).catch(()=>{});
     }
   }
 
   showSpinner(false);
   renderSearchTable();
+  if(pending) setPendingText(["searchTotalQty","searchTotalCount"]);
 }
 
-async function runSearch(){
+async function runSearch(opts){
   searchCurrentPage = 1;
-  await fetchSearchPage();
+  await fetchSearchPage(opts);
 }
 
 // Export/print need the complete matching set, not just the current page.
@@ -7963,7 +8128,7 @@ function arbShowSubPage(which){
   document.getElementById("arbTabSensory").classList.toggle("active", which==="sensory");
   document.getElementById("arbTabPref").classList.toggle("active", which==="pref");
   document.getElementById("arbTabSearch").classList.toggle("active", which==="search");
-  if(which==="search") arbRunSearch();
+  if(which==="search"){ if(arbLastSearchResults.length) renderArbSearchResults(); arbRunSearch({ silent:true }); }
 }
 document.getElementById("arbTabSensory").addEventListener("click", ()=>arbShowSubPage("sensory"));
 document.getElementById("arbTabPref").addEventListener("click", ()=>arbShowSubPage("pref"));
@@ -7996,6 +8161,7 @@ function closeArbSensoryEditModal(){
   pageEl.style.display = "none";
   arbSEditModalOpen = false;
   document.getElementById("arbSEditModalOverlay").classList.remove("open");
+  arbSSetStage("idle");
 }
 document.getElementById("btnArbSEditModalClose").addEventListener("click", ()=>{
   if(arbSOpinions.length>0 || document.getElementById("arbS_product_name").value.trim()){
@@ -8147,9 +8313,14 @@ function arbSSetStage(stage){
   const saveBtn = document.getElementById("btnArbSFinalSave");
   const exportBtn = document.getElementById("btnArbSExportExcel");
   const pdfBtn = document.getElementById("btnArbSExportPdf");
+  // Inside the edit modal (تعديل تحكيم عينات عادى): after the final save only the
+  // Excel button is shown, and it stays visible after downloading so the file
+  // can be downloaded again. (Outside the modal the old flow is unchanged.)
+  const inEditModal = !!arbSEditModalOpen;
+  if(inEditModal && stage==="downloaded") stage = "saved";
   saveBtn.style.display = (stage==="idle" && arbSOpinions.length>0) ? "" : "none";
   exportBtn.style.display = stage==="saved" ? "" : "none";
-  pdfBtn.style.display = stage==="saved" ? "" : "none";
+  pdfBtn.style.display = (stage==="saved" && !inEditModal) ? "" : "none";
 }
 async function arbSResetForm(){
   arbSOpinions = [];
@@ -8165,8 +8336,8 @@ async function arbSResetForm(){
   document.getElementById("arbS_general_notes").value = "";
   arbSResetOpinionForm();
   renderArbSOpinions();
-  document.getElementById("arbS_form_no").value = await arbGetNextFormNo("sensory");
   arbSSetStage("idle");
+  document.getElementById("arbS_form_no").value = await arbGetNextFormNo("sensory");
 }
 document.getElementById("btnArbSNewForm").addEventListener("click", async ()=>{
   if(arbSOpinions.length>0 || document.getElementById("arbS_product_name").value.trim()){
@@ -8224,13 +8395,17 @@ bindBusyClick("btnArbSFinalSave", async ()=>{
       document.getElementById("arbS_form_no").value = data.form_no;
     }
     // remember new official/department/judges for future autocomplete
-    if(!arbOfficialsCache.some(o=>o.name===official_name)) await sb.from(ARB_OFFICIALS_TABLE).insert({ name: official_name });
+    const lookupInserts = [];
+    if(!arbOfficialsCache.some(o=>o.name===official_name)) lookupInserts.push(sb.from(ARB_OFFICIALS_TABLE).insert({ name: official_name }));
     for(const o of arbSOpinions){
       if(o.judge_name && !arbJudgesCache.some(j=>j.name===o.judge_name)){
-        await sb.from(ARB_JUDGES_TABLE).insert({ name:o.judge_name, job_title:o.job_title||null });
+        lookupInserts.push(sb.from(ARB_JUDGES_TABLE).insert({ name:o.judge_name, job_title:o.job_title||null }));
       }
     }
-    await loadArbLookups(true);
+    if(lookupInserts.length){
+      await Promise.all(lookupInserts);
+      await loadArbLookups(true);
+    }
     arbSLastExportData = {
       formNo: form_no,
       productName: product_name,
@@ -8241,11 +8416,11 @@ bindBusyClick("btnArbSFinalSave", async ()=>{
       details: document.getElementById("arbS_details").value.trim(),
       opinions: arbSOpinions.slice()
     };
-    await arbSResetForm();
+    arbSResetForm();            // not awaited: next form number loads in the background
     arbSSetStage("saved");
     lastArbSearchFilterSignature = null;
     if(wasEditingViaModal){
-      await arbRunSearch();
+      arbRunSearch();           // refresh results in the background
       toast("تم حفظ التعديلات بنجاح","success");
     } else {
       toast("تم حفظ نموذج التحكيم بنجاح","success");
@@ -9322,32 +9497,45 @@ let lastArbSearchFilterSignature = null;
 
 let arbLastSearchResults = [];
 let arbSelectedKeys = new Set();
-async function arbRunSearch(){
-  showSpinner(true);
+async function arbRunSearch(opts){
+  const silent = !!(opts && opts.silent === true);
+  if(silent) setSearchLoadingRow("arbSearchTableBody"); else showSpinner(true);
   try{
     const pageSize = getConfiguredPageSize();
     const start = (arbSearchCurrentPage - 1) * pageSize;
     let pageQ = sb.from(ARB_SESSIONS_TABLE).select("*").eq("session_type", arbSearchMode).order("judging_date",{ascending:false}).range(start, start + pageSize - 1);
     pageQ = applyArbSearchFilters(pageQ);
 
-    // Only re-run the (more expensive) exact count when the filters actually
-    // changed — a plain next/prev page click reuses the last known total.
     const sig = computeArbSearchFilterSignature();
     const needCount = sig !== lastArbSearchFilterSignature;
-    let countQ = null;
-    if(needCount){
-      countQ = sb.from(ARB_SESSIONS_TABLE).select("id", { count:"exact", head:true }).eq("session_type", arbSearchMode);
-      countQ = applyArbSearchFilters(countQ);
-    }
 
-    const [pageRes, countRes] = await Promise.all([pageQ, needCount ? countQ : Promise.resolve(null)]);
+    const pageRes = await pageQ;
     if(pageRes.error) throw pageRes.error;
     arbLastSearchResults = pageRes.data || [];
+
+    let pending = false;
     if(needCount){
-      lastArbSearchFilterSignature = sig;
-      arbSearchTotalSessions = countRes.error ? arbLastSearchResults.length : (countRes.count ?? 0);
+      if(arbLastSearchResults.length > 0 && arbLastSearchResults.length < pageSize){
+        arbSearchTotalSessions = start + arbLastSearchResults.length;
+        lastArbSearchFilterSignature = sig;
+      } else if(start === 0 && arbLastSearchResults.length === 0){
+        arbSearchTotalSessions = 0;
+        lastArbSearchFilterSignature = sig;
+      } else {
+        pending = true;
+        arbSearchTotalSessions = start + arbLastSearchResults.length + (arbLastSearchResults.length >= pageSize ? 1 : 0);
+        let countQ = sb.from(ARB_SESSIONS_TABLE).select("id", { count:"exact", head:true }).eq("session_type", arbSearchMode);
+        countQ = applyArbSearchFilters(countQ);
+        Promise.resolve(countQ).then(countRes=>{
+          if(computeArbSearchFilterSignature() !== sig) return;
+          arbSearchTotalSessions = countRes.error ? (start + arbLastSearchResults.length) : (countRes.count ?? 0);
+          lastArbSearchFilterSignature = sig;
+          renderArbSearchResults();
+        }).catch(()=>{});
+      }
     }
     renderArbSearchResults();
+    if(pending) setPendingText(["arbSearchTotalCount"]);
   } catch(err){
     toast("خطأ فى البحث: "+(err.message||err.code||"خطأ غير معروف"),"error");
   } finally { showSpinner(false); }
@@ -9691,8 +9879,7 @@ async function arbRefreshFormNumbers(){
   if(pEl) pEl.value = pNo;
 }
 async function initArbitrationPage(){
-  await loadArbLookups();
-  await arbRefreshFormNumbers();
+  await Promise.all([loadArbLookups(), arbRefreshFormNumbers()]);
 }
 
 
@@ -10106,8 +10293,9 @@ document.getElementById("tabRcvSearch").addEventListener("click", ()=>{
   document.getElementById("tabRcvNew").classList.remove("active");
   document.getElementById("rcvSearch").style.display = "";
   document.getElementById("rcvNew").style.display = "none";
-  lastRcvFilterSignature = null;
-  runRcvSearch();
+  lastRcvFilterSignature = null; /* re-count in background in case data changed */
+  if(rcvSearchResults.length) renderRcvSearchTable(); /* instant paint of last results */
+  runRcvSearch({ silent:true });
 });
 
 /* ===== Raw material searches & audits ===== */
@@ -10149,8 +10337,12 @@ function computeRcvFilterSignature(){
 }
 let lastRcvFilterSignature = null;
 
-async function fetchRcvSearchPage(){
-  showSpinner(true);
+async function fetchRcvSearchPage(opts){
+  const silent = !!(opts && opts.silent === true);
+  if(silent) setSearchLoadingRow("rcvSearchTableBody"); else showSpinner(true);
+  /* material-issue flags no longer block the table: rows show first,
+     the red highlights are applied as soon as the flags arrive */
+  const flagsWereLoaded = materialIssuesLoaded;
   const flagsP = loadMaterialIssuesFlags();
   const pageSize = parseInt(document.getElementById("set_page_size")?.value) || 50;
   const start = (rcvSearchPage - 1) * pageSize;
@@ -10160,26 +10352,47 @@ async function fetchRcvSearchPage(){
 
   const sig = computeRcvFilterSignature();
   const needCount = sig !== lastRcvFilterSignature;
-  let countQ = null;
-  if(needCount){
-    countQ = sb.from(RCV_TABLE).select("id", { count: "exact", head: true });
-    countQ = applyRcvSearchFilters(countQ);
-  }
 
-  const [pageRes, countRes] = await Promise.all([pageQ, needCount ? countQ : Promise.resolve(null), flagsP]);
+  const pageRes = await pageQ;
   showSpinner(false);
   if(pageRes.error){ toast("خطأ فى البحث: "+pageRes.error.message,"error"); return; }
   rcvSearchResults = pageRes.data || [];
+
+  let pending = false;
   if(needCount){
-    lastRcvFilterSignature = sig;
-    rcvSearchTotalCount = countRes.error ? rcvSearchResults.length : (countRes.count ?? 0);
+    if(rcvSearchResults.length > 0 && rcvSearchResults.length < pageSize){
+      rcvSearchTotalCount = start + rcvSearchResults.length;
+      lastRcvFilterSignature = sig;
+    } else if(start === 0 && rcvSearchResults.length === 0){
+      rcvSearchTotalCount = 0;
+      lastRcvFilterSignature = sig;
+    } else {
+      pending = true;
+      rcvSearchTotalCount = start + rcvSearchResults.length + (rcvSearchResults.length >= pageSize ? 1 : 0);
+      let countQ = sb.from(RCV_TABLE).select("id", { count: "exact", head: true });
+      countQ = applyRcvSearchFilters(countQ);
+      Promise.resolve(countQ).then(countRes=>{
+        if(computeRcvFilterSignature() !== sig) return;
+        rcvSearchTotalCount = countRes.error ? (start + rcvSearchResults.length) : (countRes.count ?? 0);
+        lastRcvFilterSignature = sig;
+        renderRcvSearchTable();
+      }).catch(()=>{});
+    }
   }
   renderRcvSearchTable();
+  if(pending) setPendingText(["rcvSearchTotalCount"]);
+  if(!flagsWereLoaded){
+    Promise.resolve(flagsP).then(()=>{
+      if(document.getElementById("rcvSearch").style.display !== "none"){
+        const keep = pending; renderRcvSearchTable(); if(keep && lastRcvFilterSignature !== sig) setPendingText(["rcvSearchTotalCount"]);
+      }
+    }).catch(()=>{});
+  }
 }
 
-async function runRcvSearch(){
+async function runRcvSearch(opts){
   rcvSearchPage = 1;
-  await fetchRcvSearchPage();
+  await fetchRcvSearchPage(opts);
 }
 
 // Export / period-report need the complete matching set with every column
@@ -11770,8 +11983,9 @@ function computeNcSearchFilterSignature(){
     document.getElementById("s3_patroler").value.trim(), document.getElementById("s3_freetext").value.trim()
   ]);
 }
-async function fetchNcSearchPage(){
-  showSpinner(true);
+async function fetchNcSearchPage(opts){
+  const silent = !!(opts && opts.silent === true);
+  if(silent) setSearchLoadingRow("ncSearchTableBody"); else showSpinner(true);
   const pageSize = getConfiguredPageSize();
   const orderCol = ncSortKey || "report_date";
   const ascending = ncSortKey ? ncSortDir > 0 : false;
@@ -11782,29 +11996,41 @@ async function fetchNcSearchPage(){
 
   const sig = computeNcSearchFilterSignature();
   const needCount = sig !== ncLastSearchFilterSignature;
-  let aggQ = null;
-  if(needCount){
-    aggQ = sb.from(NC_TABLE).select("id", { count: "exact" });
-    aggQ = applyNcSearchFilters(aggQ);
-  }
 
   const usernamesP = getUsernameMap();
-  const [pageRes, aggRes] = await Promise.all([pageQ, needCount ? aggQ : Promise.resolve(null)]);
+  const pageRes = await pageQ;
   if(pageRes.error){ showSpinner(false); toast("خطأ فى البحث: "+pageRes.error.message,"error"); return; }
 
   const usernames = await usernamesP;
   ncSearchResults = (pageRes.data||[]).map(r=>({ ...r, creator:{ username: usernames[r.created_by] || "" } }));
 
+  let pending = false;
   if(needCount){
-    ncLastSearchFilterSignature = sig;
-    if(aggRes.error) ncSearchTotalCount = ncSearchResults.length;
-    else ncSearchTotalCount = aggRes.count ?? 0;
+    if(ncSearchResults.length > 0 && ncSearchResults.length < pageSize){
+      ncSearchTotalCount = start + ncSearchResults.length;
+      ncLastSearchFilterSignature = sig;
+    } else if(start === 0 && ncSearchResults.length === 0){
+      ncSearchTotalCount = 0;
+      ncLastSearchFilterSignature = sig;
+    } else {
+      pending = true;
+      ncSearchTotalCount = start + ncSearchResults.length + (ncSearchResults.length >= pageSize ? 1 : 0);
+      let aggQ = sb.from(NC_TABLE).select("id", { count: "exact", head: true });
+      aggQ = applyNcSearchFilters(aggQ);
+      Promise.resolve(aggQ).then(aggRes=>{
+        if(computeNcSearchFilterSignature() !== sig) return;
+        ncSearchTotalCount = aggRes.error ? (start + ncSearchResults.length) : (aggRes.count ?? 0);
+        ncLastSearchFilterSignature = sig;
+        renderNcSearchTable();
+      }).catch(()=>{});
+    }
   }
 
   showSpinner(false);
   renderNcSearchTable();
+  if(pending) setPendingText(["ncSearchTotalCount"]);
 }
-async function runNcSearch(){ ncSearchCurrentPage = 1; await fetchNcSearchPage(); }
+async function runNcSearch(opts){ ncSearchCurrentPage = 1; await fetchNcSearchPage(opts); }
 bindBusyClick("btnNcSearch", runNcSearch, "جارٍ البحث...");
 document.getElementById("btnNcResetSearch").addEventListener("click", ()=>{
   ["s3_case_number","s3_department","s3_executor","s3_followup","s3_patroler","s3_freetext"]
@@ -12456,7 +12682,7 @@ function ncSetMode(mode){
   document.getElementById("tabNcNew").classList.toggle("active", mode==="new");
   document.getElementById("tabNcSearch").classList.toggle("active", mode==="search");
   if(mode==="new") updateNcCaseNumberPreview();
-  if(mode==="search") runNcSearch();
+  if(mode==="search"){ if(ncSearchResults.length) renderNcSearchTable(); runNcSearch({ silent:true }); }
 }
 document.getElementById("tabNcNew").addEventListener("click", ()=>ncSetMode("new"));
 document.getElementById("tabNcSearch").addEventListener("click", ()=>ncSetMode("search"));
@@ -12804,9 +13030,60 @@ bindBusyClick("btnSmpBulkRegister", async ()=>{
 });
 
 /* ---------- list row rendering (shared by manual + schedule tabs), with pagination so each page fills the screen with no scrolling ---------- */
+/* ===== تحديد وحذف جماعى — تبويبى الفحص اليدوى / طبقاً للتوقيتات ===== */
+let smpListSelectedIds = new Set();
+function smpActiveListRows(){
+  return document.getElementById("smpManualPage").style.display !== "none" ? smpManualAllRows : smpScheduleAllRows;
+}
+function smpUpdateListUi(){
+  { const keep = new Set([...smpManualAllRows, ...smpScheduleAllRows].map(r=>r.id)); smpListSelectedIds.forEach(id=>{ if(!keep.has(id)) smpListSelectedIds.delete(id); }); }
+  const rows = smpActiveListRows();
+  const all = rows.length>0 && rows.every(r=>smpListSelectedIds.has(r.id));
+  document.querySelectorAll(".smpListSelCount").forEach(el=>{ el.textContent = smpListSelectedIds.size; });
+  ["M","S"].forEach(s=>{ const b=document.getElementById("btnSmpListToggle"+s); if(b) b.textContent = all ? "إلغاء تحديد الكل" : "تحديد الكل"; });
+}
+window.smpNoop = function(){};
+window.toggleSmpListSelect = function(id, checked){
+  if(checked) smpListSelectedIds.add(id); else smpListSelectedIds.delete(id);
+  smpUpdateListUi();
+};
+function smpListToggleAll(){
+  const rows = smpActiveListRows();
+  const all = rows.length>0 && rows.every(r=>smpListSelectedIds.has(r.id));
+  rows.forEach(r=>{ if(all) smpListSelectedIds.delete(r.id); else smpListSelectedIds.add(r.id); });
+  document.querySelectorAll(".smp-list-cb").forEach(cb=>{ cb.checked = !all; });
+  smpUpdateListUi();
+}
+async function smpListDeleteSelected(){
+  const ids = Array.from(smpListSelectedIds);
+  if(ids.length===0){ toast("لم يتم تحديد أى عينة","warning"); return; }
+  if(!confirm(`هل أنت متأكد من حذف ${ids.length} عينة محددة؟\nسيتم أيضاً حذف سجل الفحوصات الخاص بها، ولا يمكن التراجع.`)) return;
+  showSpinner(true);
+  try{
+    const CHUNK = 200;
+    for(let i=0;i<ids.length;i+=CHUNK){
+      const part = ids.slice(i,i+CHUNK);
+      const r1 = await sb.from(SAMPLES_TESTS_TABLE).delete().in("sample_id", part);
+      if(r1.error){ toast("خطأ فى حذف سجل الفحوصات: "+r1.error.message,"error"); return; }
+      const r2 = await sb.from(SAMPLES_TABLE).delete().in("id", part);
+      if(r2.error){ toast("خطأ فى الحذف: "+r2.error.message,"error"); return; }
+    }
+  } finally { showSpinner(false); }
+  toast(`تم حذف ${ids.length} عينة بنجاح`,"success");
+  if(smpSelectedSample && ids.includes(smpSelectedSample.id)) smpCloseTestPanel();
+  smpListSelectedIds.clear();
+  smpNextSampleNoCache = null;
+  if(document.getElementById("smpManualPage").style.display !== "none") runSmpManualSearch(); else runSmpScheduleSearch();
+}
+["M","S"].forEach(s=>{
+  document.getElementById("btnSmpListToggle"+s).addEventListener("click", smpListToggleAll);
+  document.getElementById("btnSmpListDelete"+s).addEventListener("click", smpListDeleteSelected);
+});
+
 function smpRowHtml(r){
   const tested = !!r.last_test_date;
   return `<tr id="smpRow_${r.id}" class="${tested?'smp-tested-row':''}" data-click="smpSelectSample" data-args='${escapeHtml(JSON.stringify([r.id]))}' style="cursor:pointer;">
+    <td data-click="smpNoop" data-stop="1"><input type="checkbox" class="row-select-cb smp-list-cb" ${smpListSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpListSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
     <td>${escapeHtml(r.retention_label||"")}</td>
     <td>${escapeHtml(r.department||"")}</td>
     <td>${formatDateDisplay(r.pull_date)}</td>
@@ -12850,8 +13127,9 @@ function smpRenderManualPage(){
   if(smpManualCurPage < 1) smpManualCurPage = 1;
   const start = (smpManualCurPage-1)*perPage;
   const pageRows = smpManualAllRows.slice(start, start+perPage);
-  document.getElementById("smpManualTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="7" style="text-align:center;opacity:.7;">لا توجد عينات</td></tr>`;
+  document.getElementById("smpManualTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="8" style="text-align:center;opacity:.7;">لا توجد عينات</td></tr>`;
   smpRenderPager("smpManualPager", smpManualCurPage, totalPages, "smpManualGoPage");
+  smpUpdateListUi();
 }
 window.smpManualGoPage = function(p){ smpManualCurPage = p; smpRenderManualPage(); };
 
@@ -12860,7 +13138,7 @@ async function runSmpManualSearch(){
   let q = sb.from(SAMPLES_TABLE).select("*").order("production_date",{ascending:false}).order("sample_no",{ascending:false}).limit(500);
   if(d) q = q.eq("production_date", d);
   const { data, error } = await q;
-  if(error){ document.getElementById("smpManualTableBody").innerHTML = `<tr><td colspan="7">تعذر التحميل</td></tr>`; return; }
+  if(error){ document.getElementById("smpManualTableBody").innerHTML = `<tr><td colspan="8">تعذر التحميل</td></tr>`; return; }
   smpManualAllRows = data||[];
   smpManualCurPage = 1;
   document.getElementById("smpManualTotalCount").textContent = smpManualAllRows.length;
@@ -12877,15 +13155,16 @@ function smpRenderSchedulePage(){
   if(smpScheduleCurPage < 1) smpScheduleCurPage = 1;
   const start = (smpScheduleCurPage-1)*perPage;
   const pageRows = smpScheduleAllRows.slice(start, start+perPage);
-  document.getElementById("smpScheduleTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="7" style="text-align:center;opacity:.7;">لا توجد عينات مستحقة الفحص حالياً</td></tr>`;
+  document.getElementById("smpScheduleTableBody").innerHTML = pageRows.map(smpRowHtml).join("") || `<tr><td colspan="8" style="text-align:center;opacity:.7;">لا توجد عينات مستحقة الفحص حالياً</td></tr>`;
   smpRenderPager("smpSchedulePager", smpScheduleCurPage, totalPages, "smpScheduleGoPage");
+  smpUpdateListUi();
 }
 window.smpScheduleGoPage = function(p){ smpScheduleCurPage = p; smpRenderSchedulePage(); };
 
 async function runSmpScheduleSearch(){
   const today = todayStr();
   const { data, error } = await sb.from(SAMPLES_TABLE).select("*").eq("is_base", false).is("last_test_date", null).order("production_date");
-  if(error){ document.getElementById("smpScheduleTableBody").innerHTML = `<tr><td colspan="7">تعذر التحميل</td></tr>`; return; }
+  if(error){ document.getElementById("smpScheduleTableBody").innerHTML = `<tr><td colspan="8">تعذر التحميل</td></tr>`; return; }
   const due = (data||[]).filter(r=>{
     if(!r.production_date || !r.life_days) return false;
     return smpAddDays(r.production_date, r.life_days) <= today;
@@ -13084,8 +13363,56 @@ document.getElementById("smpS_filterTested").addEventListener("click", ()=>smpSe
 document.getElementById("smpS_filterAll").addEventListener("click", ()=>smpSetSearchFilter("all"));
 
 let smpLastSearchResults = [];
-async function runSmpSearch(){
-  let q = sb.from(SAMPLES_TABLE).select("*");
+let smpRenderToken = 0;
+
+/* ===== تحديد وحذف جماعى (للأدمن فقط) — نتائج بحث غرفة العينات ===== */
+let smpSearchSelectedIds = new Set();
+function smpUpdateBulkUi(){
+  const countEl = document.getElementById("smpSelectedCount");
+  if(countEl) countEl.textContent = smpSearchSelectedIds.size;
+  const rows = smpLastSearchResults;
+  const allSelected = rows.length>0 && rows.every(r=>smpSearchSelectedIds.has(r.id));
+  const toggleBtn = document.getElementById("btnSmpSelectToggle");
+  if(toggleBtn) toggleBtn.textContent = allSelected ? "إلغاء تحديد الكل" : "تحديد الكل";
+}
+window.toggleSmpRowSelect = function(id, checked){
+  if(checked) smpSearchSelectedIds.add(id); else smpSearchSelectedIds.delete(id);
+  smpUpdateBulkUi();
+};
+document.getElementById("btnSmpSelectToggle").addEventListener("click", ()=>{
+  const rows = smpLastSearchResults;
+  const allSelected = rows.length>0 && rows.every(r=>smpSearchSelectedIds.has(r.id));
+  rows.forEach(r=>{ if(allSelected) smpSearchSelectedIds.delete(r.id); else smpSearchSelectedIds.add(r.id); });
+  document.querySelectorAll("#smpSearchTableBody .smp-row-cb").forEach(cb=>{ cb.checked = !allSelected; });
+  smpUpdateBulkUi();
+});
+document.getElementById("btnSmpDeleteSelected").addEventListener("click", async ()=>{
+  const ids = Array.from(smpSearchSelectedIds);
+  if(ids.length===0){ toast("لم يتم تحديد أى عينة","warning"); return; }
+  if(!confirm(`هل أنت متأكد من حذف ${ids.length} عينة محددة؟\nسيتم أيضاً حذف سجل الفحوصات الخاص بها، ولا يمكن التراجع.`)) return;
+  showSpinner(true);
+  try{
+    const CHUNK = 200;
+    for(let i=0;i<ids.length;i+=CHUNK){
+      const part = ids.slice(i,i+CHUNK);
+      const r1 = await sb.from(SAMPLES_TESTS_TABLE).delete().in("sample_id", part);
+      if(r1.error){ toast("خطأ فى حذف سجل الفحوصات: "+r1.error.message,"error"); return; }
+      const r2 = await sb.from(SAMPLES_TABLE).delete().in("id", part);
+      if(r2.error){ toast("خطأ فى الحذف: "+r2.error.message,"error"); return; }
+    }
+  } finally { showSpinner(false); }
+  toast(`تم حذف ${ids.length} عينة بنجاح`,"success");
+  if(smpSelectedSample && ids.includes(smpSelectedSample.id)) smpCloseTestPanel();
+  smpSearchSelectedIds.clear();
+  smpNextSampleNoCache = null;
+  runSmpSearch({ silent:true });
+  if(typeof smpManualAllRows!=="undefined" && smpManualAllRows.length) runSmpManualSearch();
+  if(typeof smpScheduleAllRows!=="undefined" && smpScheduleAllRows.length) runSmpScheduleSearch();
+});
+async function runSmpSearch(opts){
+  const silent = !!(opts && opts.silent === true);
+  if(silent) setSearchLoadingRow("smpSearchTableBody");
+  let q = sb.from(SAMPLES_TABLE).select("id,sample_no,retention_label,department,pull_date,product_name,production_date,expiry_date,direction,weight,batch_no,last_test_date");
   const pf=document.getElementById("smpS_prod_from").value, pt=document.getElementById("smpS_prod_to").value;
   const wf=document.getElementById("smpS_pull_from").value, wt=document.getElementById("smpS_pull_to").value;
   const ef=document.getElementById("smpS_exp_from").value, et=document.getElementById("smpS_exp_to").value;
@@ -13106,17 +13433,35 @@ async function runSmpSearch(){
   const body = document.getElementById("smpSearchTableBody");
   if(error){ toast("تعذر البحث: "+(error.message||error.code||"خطأ"),"error"); body.innerHTML=""; return; }
   smpLastSearchResults = data || [];
+  { const keep = new Set(smpLastSearchResults.map(r=>r.id)); smpSearchSelectedIds.forEach(id=>{ if(!keep.has(id)) smpSearchSelectedIds.delete(id); }); }
   document.getElementById("smpSearchTotalCount").textContent = smpLastSearchResults.length;
-  body.innerHTML = smpLastSearchResults.length===0 ? `<tr><td colspan="12" style="text-align:center;opacity:.7;">لا توجد نتائج</td></tr>`
-    : smpLastSearchResults.map(r=>`
+  const smpRowHtml = r=>`
     <tr>
+      <td><input type="checkbox" class="row-select-cb smp-row-cb" data-stop="1" ${smpSearchSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td>${r.sample_no??""}</td><td>${escapeHtml(r.retention_label||"")}</td><td>${escapeHtml(r.department||"")}</td>
       <td>${formatDateDisplay(r.pull_date)}</td><td>${escapeHtml(r.product_name||"")}</td>
       <td>${formatDateDisplay(r.production_date)}</td><td>${formatDateDisplay(r.expiry_date)}</td>
       <td>${escapeHtml(r.direction||"")}</td><td>${r.weight??""}</td><td>${escapeHtml(r.batch_no||"")}</td>
       <td>${formatDateDisplay(r.last_test_date)}</td>
       <td class="row-actions"><button title="تعديل" data-click="openSmpEditModal" data-args='${escapeHtml(JSON.stringify([r.id]))}'>✏️</button></td>
-    </tr>`).join("");
+    </tr>`;
+  if(smpLastSearchResults.length===0){
+    body.innerHTML = `<tr><td colspan="13" style="text-align:center;opacity:.7;">لا توجد نتائج</td></tr>`;
+    smpUpdateBulkUi();
+    return;
+  }
+  /* render in chunks so up to 2000 rows never freeze the screen */
+  const token = ++smpRenderToken;
+  const FIRST = 100, STEP = 300;
+  body.innerHTML = smpLastSearchResults.slice(0, FIRST).map(smpRowHtml).join("");
+  smpUpdateBulkUi();
+  let i = FIRST;
+  (function more(){
+    if(token !== smpRenderToken || i >= smpLastSearchResults.length) return;
+    body.insertAdjacentHTML("beforeend", smpLastSearchResults.slice(i, i+STEP).map(smpRowHtml).join(""));
+    i += STEP;
+    setTimeout(more, 0);
+  })();
 }
 document.getElementById("btnSmpSearchGo").addEventListener("click", runSmpSearch);
 document.getElementById("btnSmpSearchReset").addEventListener("click", ()=>{
@@ -13127,6 +13472,8 @@ document.getElementById("btnSmpSearchReset").addEventListener("click", ()=>{
   document.getElementById("smpS_weight").value = "";
   document.getElementById("smpS_batch").value = "";
   smpSetSearchFilter("untested");
+  smpRenderToken++;
+  smpSearchSelectedIds.clear(); smpLastSearchResults = []; smpUpdateBulkUi();
   document.getElementById("smpSearchTableBody").innerHTML = "";
   document.getElementById("smpSearchTotalCount").textContent = "0";
 });
@@ -13241,7 +13588,7 @@ function smpGoSearch(){
   document.getElementById("smpListModes").style.display = "none";
   document.getElementById("smpReportPage").style.display = "none";
   document.getElementById("smpSearchPage").style.display = "";
-  runSmpSearch();
+  runSmpSearch({ silent:true });
 }
 function smpGoReport(){
   document.getElementById("smpListModes").style.display = "none";
@@ -13512,6 +13859,295 @@ resetInactivityTimer();
     }
   });
 })();
+
+/* =========================================================
+   EXTRA ASSIGNMENT ORDERS (أمر تكليف إضافي)
+   Tables: eo_employees(code, name, job_title) , eo_orders(...)  — see SQL section 7 at top of file
+========================================================= */
+const EO_EMP_TABLE = "eo_employees";
+const EO_TABLE = "eo_orders";
+const EO_DAYS = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+let eoEmps = [];
+let eoOrders = [];
+let eoInited = false;
+
+function eoIso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function eoNorm(v){ return arbNormalizeDigits(String(v==null?"":v)).trim(); }
+function eoSetDay(){
+  const v = document.getElementById("eo_date").value;
+  document.getElementById("eo_day").value = v ? EO_DAYS[new Date(v+"T12:00:00").getDay()] : "";
+}
+async function eoLoadEmps(){
+  const { data, error } = await sb.from(EO_EMP_TABLE).select("*").order("code");
+  if(error){ console.error("eo emps load", error); toast("تعذر تحميل الموظفين — تأكد من تشغيل SQL الخاص بالجداول","error"); eoEmps = []; return; }
+  eoEmps = data || [];
+  eoFillCodeSelects();
+}
+function eoLookup(){
+  const c = eoNorm(document.getElementById("eo_code").value);
+  const e = eoEmps.find(x=>String(x.code)===c);
+  document.getElementById("eo_name").value = e ? e.name : "";
+  document.getElementById("eo_job").value = e ? (e.job_title||"") : "";
+  const h = document.getElementById("eo_hint");
+  h.textContent = !c ? "" : (e ? "✔ تم العثور على الموظف" : "✖ الكود غير مسجل — استخدم زر إضافة الموظفين");
+  h.style.color = e ? "#1e8449" : "#c0392b";
+}
+function eoLikeEsc(v){ return v.replace(/[\\%_]/g, m=>"\\"+m); }
+async function eoLoadOrders(){
+  const g = id=>document.getElementById(id).value;
+  const from = g("eoF_from"), to = g("eoF_to");
+  if(from && to && from > to){ toast("تاريخ (من) أكبر من تاريخ (إلى)","warning"); return; }
+  let q = sb.from(EO_TABLE).select("*").order("order_date",{ascending:false}).order("created_at",{ascending:false}).limit(1000);
+  if(from) q = q.gte("order_date", from);
+  if(to) q = q.lte("order_date", to);
+  const code = eoNorm(g("eoF_code")), name = g("eoF_name").trim();
+  if(code) q = q.ilike("emp_code", "%"+eoLikeEsc(code)+"%");
+  if(name) q = q.ilike("emp_name", "%"+eoLikeEsc(name)+"%");
+  if(g("eoF_shift")) q = q.eq("shift", g("eoF_shift"));
+  if(g("eoF_type")) q = q.eq("order_type", g("eoF_type"));
+  const { data, error } = await q;
+  if(error){ console.error("eo orders load", error); toast("تعذر تحميل الأوامر","error"); eoOrders = []; }
+  else eoOrders = data || [];
+  eoRenderOrders();
+}
+function eoClearFilters(){
+  ["eoF_from","eoF_to","eoF_code","eoF_name"].forEach(i=>document.getElementById(i).value="");
+  document.getElementById("eoF_shift").selectedIndex = -1;
+  document.getElementById("eoF_type").selectedIndex = -1;
+  eoLoadOrders();
+}
+function eoRenderOrders(){
+  document.getElementById("eoCount").textContent = eoOrders.length;
+  document.getElementById("eoOrdersBody").innerHTML = eoOrders.length===0
+    ? `<tr><td colspan="11" style="text-align:center;opacity:.7;">لا توجد أوامر مسجلة</td></tr>`
+    : eoOrders.map(o=>`<tr>
+        <td>${escapeHtml(o.order_date||"")}</td><td>${escapeHtml(o.day_name||"")}</td><td>${escapeHtml(o.shift||"")}</td>
+        <td>${escapeHtml(o.emp_code||"")}</td><td class="name-col">${escapeHtml(o.emp_name||"")}</td><td class="name-col">${escapeHtml(o.job_title||"")}</td>
+        <td>${escapeHtml(o.order_type||"")}</td><td class="name-col">${escapeHtml(o.work_desc||"")}</td>
+        <td>${escapeHtml(o.created_by||"")}</td><td style="white-space:nowrap;">${escapeHtml(eoFmtTime(o.created_at))}</td>
+        <td class="action-col"><button title="تعديل" data-click="eoEditOrder" data-args='${escapeHtml(JSON.stringify([o.id]))}'>✏️</button> <button title="حذف" data-click="eoDeleteOrder" data-args='${escapeHtml(JSON.stringify([o.id]))}'>🗑️</button></td></tr>`).join("");
+}
+function eoRenderEmps(){
+  const q = document.getElementById("eoE_search").value.trim().toLowerCase();
+  const rows = eoEmps.filter(e=>!q || String(e.code).toLowerCase().includes(q) || String(e.name).toLowerCase().includes(q));
+  document.getElementById("eoEmpCount").textContent = eoEmps.length;
+  document.getElementById("eoEmpBody").innerHTML = rows.length===0
+    ? `<tr><td colspan="4" style="text-align:center;opacity:.7;">لا يوجد موظفون</td></tr>`
+    : rows.map(e=>`<tr><td>${escapeHtml(e.code)}</td><td class="name-col">${escapeHtml(e.name)}</td><td class="name-col">${escapeHtml(e.job_title||"")}</td>
+        <td class="action-col">
+          <button title="تعديل" data-click="eoEditEmp" data-args='${escapeHtml(JSON.stringify([e.id]))}'>✏️</button>
+          <button title="حذف" data-click="eoDeleteEmp" data-args='${escapeHtml(JSON.stringify([e.id]))}'>🗑️</button>
+        </td></tr>`).join("");
+}
+async function eoSaveOrder(){
+  const code = eoNorm(document.getElementById("eo_code").value);
+  const emp = eoEmps.find(x=>String(x.code)===code);
+  const date = document.getElementById("eo_date").value;
+  const work = document.getElementById("eo_work").value.trim();
+  const shift = document.getElementById("eo_shift").value;
+  const type = document.getElementById("eo_type").value;
+  const missing = [];
+  if(!shift) missing.push("الوردية");
+  if(!date) missing.push("التاريخ");
+  if(!emp) missing.push("كود الموظف");
+  if(!type) missing.push("نوع أمر التكليف");
+  if(!work) missing.push("العمل المكلف به");
+  if(missing.length){ toast("لا يمكن الحفظ — أكمل: "+missing.join("، "),"warning"); return; }
+  const { error } = await sb.from(EO_TABLE).insert({
+    shift: shift, order_date: date, day_name: document.getElementById("eo_day").value,
+    emp_code: String(emp.code), emp_name: emp.name, job_title: emp.job_title || "",
+    order_type: type, work_desc: work,
+    created_by: (myProfile && myProfile.username) || ""
+  });
+  if(error){ console.error("eo save", error); toast("تعذر الحفظ: "+(error.message||""),"error"); return; }
+  document.getElementById("eo_shift").selectedIndex = -1; document.getElementById("eo_code").selectedIndex = -1; document.getElementById("eo_type").selectedIndex = -1; document.getElementById("eo_work").value = "";
+  eoLookup(); toast("تم حفظ أمر التكليف","success");
+  await eoLoadOrders();
+  document.getElementById("eo_code").focus();
+}
+window.eoDeleteOrder = async function(id){
+  if(!confirm("هل تريد حذف هذا الأمر؟")) return;
+  const { error } = await sb.from(EO_TABLE).delete().eq("id", id);
+  if(error){ toast("تعذر الحذف","error"); return; }
+  toast("تم الحذف","success"); await eoLoadOrders();
+};
+async function eoAddEmp(){
+  const code = eoNorm(document.getElementById("eoE_code").value);
+  const name = document.getElementById("eoE_name").value.trim();
+  const job = document.getElementById("eoE_job").value.trim();
+  if(!code || !name || !job){ toast("أكمل الكود والاسم والوظيفة","warning"); return; }
+  if(eoEmps.some(e=>String(e.code)===code)){ toast("هذا الكود مسجل بالفعل","warning"); return; }
+  const { error } = await sb.from(EO_EMP_TABLE).insert({ code, name, job_title: job });
+  if(error){ console.error("eo emp add", error); toast("تعذر الإضافة","error"); return; }
+  ["eoE_code","eoE_name","eoE_job"].forEach(i=>document.getElementById(i).value="");
+  await eoLoadEmps(); eoRenderEmps(); eoLookup(); toast("تمت الإضافة","success");
+  document.getElementById("eoE_code").focus();
+}
+window.eoEditEmp = async function(id){
+  const e = eoEmps.find(x=>x.id===id); if(!e) return;
+  const n = prompt("اسم الموظف:", e.name); if(n===null) return;
+  const j = prompt("الوظيفة:", e.job_title||""); if(j===null) return;
+  if(!n.trim() || !j.trim()){ toast("الاسم والوظيفة لا يمكن أن يكونا فارغين","warning"); return; }
+  const { error } = await sb.from(EO_EMP_TABLE).update({ name:n.trim(), job_title:j.trim() }).eq("id", id);
+  if(error){ toast("تعذر التعديل","error"); return; }
+  await eoLoadEmps(); eoRenderEmps(); eoLookup(); toast("تم التعديل","success");
+};
+window.eoDeleteEmp = async function(id){
+  const e = eoEmps.find(x=>x.id===id); if(!e) return;
+  if(!confirm(`هل تريد حذف "${e.name}"؟`)) return;
+  const { error } = await sb.from(EO_EMP_TABLE).delete().eq("id", id);
+  if(error){ toast("تعذر الحذف","error"); return; }
+  await eoLoadEmps(); eoRenderEmps(); eoLookup(); toast("تم الحذف","success");
+};
+
+/* ---------- edit saved order ---------- */
+let eoEditingId = null;
+function eoUSetDay(){
+  const v = document.getElementById("eoU_date").value;
+  document.getElementById("eoU_day").value = v ? EO_DAYS[new Date(v+"T12:00:00").getDay()] : "";
+}
+function eoULookup(){
+  const c = eoNorm(document.getElementById("eoU_code").value);
+  const e = eoEmps.find(x=>String(x.code)===c);
+  document.getElementById("eoU_name").value = e ? e.name : "";
+  document.getElementById("eoU_job").value = e ? (e.job_title||"") : "";
+  const h = document.getElementById("eoU_hint");
+  h.textContent = !c ? "" : (e ? "✔ تم العثور على الموظف" : "✖ الكود غير مسجل");
+  h.style.color = e ? "#1e8449" : "#c0392b";
+}
+window.eoEditOrder = async function(id){
+  const o = eoOrders.find(x=>x.id===id); if(!o) return;
+  if(!eoEmps.length) await eoLoadEmps();
+  eoEditingId = id;
+  document.getElementById("eoU_shift").value = o.shift;
+  document.getElementById("eoU_date").value = o.order_date;
+  eoFillCodeSelects(o.emp_code);
+  document.getElementById("eoU_code").value = o.emp_code;
+  document.getElementById("eoU_type").value = o.order_type;
+  document.getElementById("eoU_work").value = o.work_desc || "";
+  eoUSetDay();
+  eoULookup();
+  /* لو الموظف اتحذف من القائمة بعد تسجيل الأمر، نعرض البيانات المحفوظة فى الأمر */
+  if(!document.getElementById("eoU_name").value){
+    document.getElementById("eoU_name").value = o.emp_name || "";
+    document.getElementById("eoU_job").value = o.job_title || "";
+  }
+  document.getElementById("eoEditModal").classList.add("open");
+};
+async function eoSaveEdit(){
+  if(!eoEditingId) return;
+  const code = eoNorm(document.getElementById("eoU_code").value);
+  const emp = eoEmps.find(x=>String(x.code)===code);
+  const old = eoOrders.find(x=>x.id===eoEditingId);
+  const date = document.getElementById("eoU_date").value;
+  const work = document.getElementById("eoU_work").value.trim();
+  const shift = document.getElementById("eoU_shift").value;
+  const type = document.getElementById("eoU_type").value;
+  const missing = [];
+  if(!shift) missing.push("الوردية");
+  if(!date) missing.push("التاريخ");
+  if(!emp && !(old && String(old.emp_code)===code)) missing.push("كود الموظف");
+  if(!type) missing.push("نوع أمر التكليف");
+  if(!work) missing.push("العمل المكلف به");
+  if(missing.length){ toast("لا يمكن الحفظ — أكمل: "+missing.join("، "),"warning"); return; }
+  const { error } = await sb.from(EO_TABLE).update({
+    shift: shift, order_date: date, day_name: document.getElementById("eoU_day").value,
+    emp_code: code, emp_name: emp ? emp.name : old.emp_name, job_title: emp ? (emp.job_title||"") : (old.job_title||""),
+    order_type: type, work_desc: work
+  }).eq("id", eoEditingId);
+  if(error){ console.error("eo update", error); toast("تعذر حفظ التعديل: "+(error.message||""),"error"); return; }
+  document.getElementById("eoEditModal").classList.remove("open");
+  eoEditingId = null;
+  toast("تم تعديل أمر التكليف","success");
+  await eoLoadOrders();
+}
+
+
+/* ---------- employee codes dropdown (no blank option) ---------- */
+function eoFillCodeSelects(extra){
+  const codes = eoEmps.map(e=>String(e.code)).sort((x,y)=>x.localeCompare(y,"en",{numeric:true}));
+  ["eo_code","eoU_code"].forEach(id=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const keep = sel.value;
+    let list = codes.slice();
+    if(id==="eoU_code" && extra && !list.includes(String(extra))) list.push(String(extra));
+    sel.innerHTML = list.length
+      ? list.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")
+      : `<option value="" disabled selected>أضف موظفين أولاً</option>`;
+    if(list.includes(keep)) sel.value = keep;
+    else if(id==="eo_code" && list.length) sel.selectedIndex = -1;
+  });
+}
+
+
+/* ---------- Excel export (current log / current search results) ---------- */
+function eoFmtTime(iso){
+  if(!iso) return "";
+  const d = new Date(iso); if(isNaN(d)) return "";
+  const z = n=>String(n).padStart(2,"0");
+  return z(d.getDate())+"/"+z(d.getMonth()+1)+"/"+d.getFullYear()+" "+z(d.getHours())+":"+z(d.getMinutes());
+}
+function eoDownload(buffer, filename){
+  const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob); link.download = filename; link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href), 4000);
+}
+async function eoExportExcel(){
+  if(!eoOrders.length){ toast("لا توجد بيانات للتنزيل","warning"); return; }
+  try{
+    showSpinner(true); await ensureExcelJs();
+    const wb = new ExcelJS.Workbook(); wb.creator = (myProfile && myProfile.username) || "";
+    const ws = wb.addWorksheet("أوامر التكليف الإضافي",{views:[{rightToLeft:true, state:"frozen", ySplit:1}]});
+    ws.columns = [
+      {header:"م",width:6},{header:"التاريخ",width:14},{header:"اليوم",width:12},{header:"الوردية",width:12},
+      {header:"كود الموظف",width:14},{header:"اسم الموظف",width:26},{header:"الوظيفة",width:22},
+      {header:"نوع أمر التكليف",width:18},{header:"العمل المكلف به",width:44},
+      {header:"أضيف بواسطة",width:18},{header:"وقت الإضافة",width:20}
+    ];
+    eoOrders.forEach((o,i)=>ws.addRow([i+1,o.order_date||"",o.day_name||"",o.shift||"",String(o.emp_code||""),o.emp_name||"",o.job_title||"",o.order_type||"",o.work_desc||"",o.created_by||"",eoFmtTime(o.created_at)]));
+    const hr = ws.getRow(1); hr.font = {bold:true}; hr.alignment = {horizontal:"center",vertical:"middle"};
+    hr.eachCell(c=>{ c.fill = {type:"pattern",pattern:"solid",fgColor:{argb:"FFCFD4D9"}}; });
+    ws.eachRow(r=>r.eachCell(c=>{ c.border = {top:{style:"thin"},left:{style:"thin"},bottom:{style:"thin"},right:{style:"thin"}}; if(r.number>1) c.alignment = {vertical:"middle",wrapText:true,horizontal:"center"}; }));
+    ws.autoFilter = {from:{row:1,column:1}, to:{row:1,column:11}};
+    const d = new Date();
+    eoDownload(await wb.xlsx.writeBuffer(), "سجل_أوامر_تكليف_إضافي_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+".xlsx");
+    toast("تم تنزيل "+eoOrders.length+" أمر","success");
+  }catch(err){ console.error("eo export", err); toast("خطأ فى تنزيل الملف: "+err.message,"error"); }
+  finally{ showSpinner(false); }
+}
+
+async function initExtraOrdersPage(){
+  if(!eoInited){
+    eoInited = true;
+    document.getElementById("eo_type").selectedIndex = -1;
+    document.getElementById("eo_shift").selectedIndex = -1;
+    document.getElementById("eo_date").addEventListener("input", eoSetDay);
+    document.getElementById("eo_code").addEventListener("change", eoLookup);
+    document.getElementById("btnEoSave").addEventListener("click", eoSaveOrder);
+    document.getElementById("eoF_shift").selectedIndex = -1;
+    document.getElementById("eoF_type").selectedIndex = -1;
+    document.getElementById("btnEoSearch").addEventListener("click", eoLoadOrders);
+    document.getElementById("btnEoClear").addEventListener("click", eoClearFilters);
+    ["eoF_code","eoF_name"].forEach(i=>document.getElementById(i).addEventListener("keydown", e=>{ if(e.key==="Enter") eoLoadOrders(); }));
+    document.getElementById("btnEoExport").addEventListener("click", eoExportExcel);
+    document.getElementById("eoU_date").addEventListener("input", eoUSetDay);
+    document.getElementById("eoU_code").addEventListener("change", eoULookup);
+    document.getElementById("btnEoEditSave").addEventListener("click", eoSaveEdit);
+    document.getElementById("btnEoEditCancel").addEventListener("click", ()=>{ eoEditingId = null; document.getElementById("eoEditModal").classList.remove("open"); });
+    document.getElementById("btnEoOpenEmps").addEventListener("click", async ()=>{
+      await eoLoadEmps(); document.getElementById("eoE_search").value = ""; eoRenderEmps();
+      document.getElementById("eoEmpModal").classList.add("open");
+    });
+    document.getElementById("btnEoEmpClose").addEventListener("click", ()=>document.getElementById("eoEmpModal").classList.remove("open"));
+    document.getElementById("btnEoEmpAdd").addEventListener("click", eoAddEmp);
+    document.getElementById("eoE_search").addEventListener("input", eoRenderEmps);
+  }
+  if(!document.getElementById("eo_date").value){ document.getElementById("eo_date").value = eoIso(new Date()); }
+  eoSetDay();
+  await eoLoadEmps(); eoLookup();
+  await eoLoadOrders();
+}
 </script>
 </body>
 </html>
