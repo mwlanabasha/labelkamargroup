@@ -1959,15 +1959,15 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end;">
                 <div class="field"><label>تاريخ إنتاج العينة</label><input type="text" class="date-field" autocomplete="off" placeholder="يوم/شهر/سنة" id="smpM_prod_filter"></div>
                 <div class="field" style="justify-content:flex-end;"><div class="btn-row"><button class="btn primary" id="btnSmpManualSearch">بحث</button>
-<button class="btn ghost" id="btnSmpListToggleM">تحديد الكل</button>
-<button class="btn danger" id="btnSmpListDeleteM">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div></div>
+<button class="btn ghost admin-only-btn" style="display:none;" id="btnSmpListToggleM">تحديد الكل</button>
+<button class="btn danger admin-only-btn" style="display:none;" id="btnSmpListDeleteM">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div></div>
               </div>
             </div>
             <div class="panel">
               <div class="table-wrap">
                 <table id="smpManualTable">
                   <thead><tr>
-                    <th>تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th class="admin-select-col" style="display:none;">تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                     <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
                   </tr></thead>
                   <tbody id="smpManualTableBody"></tbody>
@@ -1988,14 +1988,14 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
                 <b id="smpLifeStagesLabel"></b> يوماً من تاريخ الإنتاج.
               </div>
               <div class="btn-row"><button class="btn primary" id="btnSmpScheduleSearch">🔄 تحديث القائمة</button>
-<button class="btn ghost" id="btnSmpListToggleS">تحديد الكل</button>
-<button class="btn danger" id="btnSmpListDeleteS">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div>
+<button class="btn ghost admin-only-btn" style="display:none;" id="btnSmpListToggleS">تحديد الكل</button>
+<button class="btn danger admin-only-btn" style="display:none;" id="btnSmpListDeleteS">🗑️ حذف المحدد (<span class="smpListSelCount">0</span>)</button></div>
             </div>
             <div class="panel">
               <div class="table-wrap">
                 <table id="smpScheduleTable">
                   <thead><tr>
-                    <th>تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
+                    <th class="admin-select-col" style="display:none;">تحديد</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                     <th>تاريخ الإنتاج</th><th>الاتجاه</th><th>الوزن</th>
                   </tr></thead>
                   <tbody id="smpScheduleTableBody"></tbody>
@@ -2093,15 +2093,15 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <button class="btn ghost" id="btnSmpSearchReset">تراجع</button>
               <button class="btn ghost" id="btnSmpSearchBack">🔙 رجوع للقائمة</button>
               <button class="btn info" id="btnSmpSearchExportExcel">📊 Excel</button>
-              <button class="btn ghost" id="btnSmpSelectToggle">تحديد الكل</button>
-              <button class="btn danger" id="btnSmpDeleteSelected">🗑️ حذف المحدد (<span id="smpSelectedCount">0</span>)</button>
+              <button class="btn ghost admin-only-btn" style="display:none;" id="btnSmpSelectToggle">تحديد الكل</button>
+              <button class="btn danger admin-only-btn" style="display:none;" id="btnSmpDeleteSelected">🗑️ حذف المحدد (<span id="smpSelectedCount">0</span>)</button>
             </div>
           </div>
           <div class="panel">
             <div class="table-wrap">
               <table id="smpSearchTable">
                 <thead><tr>
-                  <th>تحديد</th>
+                  <th class="admin-select-col" style="display:none;">تحديد</th>
                   <th>رقم العينة</th><th>مدة حفظ العينات</th><th>القسم</th><th>تاريخ السحب</th><th>إسم المنتج</th>
                   <th>تاريخ الإنتاج</th><th>تاريخ الإنتهاء</th><th>الاتجاه</th><th>الوزن</th><th>رقم التشغيلة</th><th>تاريخ آخر فحص</th><th>إجراءات</th>
                 </tr></thead>
@@ -2164,8 +2164,8 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <span class="badge-count" id="pendingResetCount" style="display:none;">0</span>
           </div>
           <div class="btn-row">
-            <button class="btn ghost" id="btnResetReqSelectToggle">تحديد الكل</button>
-            <button class="btn danger" id="btnResetReqDeleteSelected">حذف المحدد (<span id="resetReqSelectedCount">0</span>)</button>
+            <button class="btn ghost admin-only-btn" style="display:none;" id="btnResetReqSelectToggle">تحديد الكل</button>
+            <button class="btn danger admin-only-btn" style="display:none;" id="btnResetReqDeleteSelected">حذف المحدد (<span id="resetReqSelectedCount">0</span>)</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -2514,6 +2514,28 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
     <div class="btn-row">
       <button class="btn primary" id="btnCpwSave" style="flex:1;">حفظ</button>
       <button class="btn ghost" id="btnCpwClose" style="flex:1;">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- register new account -->
+<div id="registerModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:400px; width:96%;">
+    <span class="modal-x-close" data-close-target="btnRegClose" title="إغلاق">✕</span>
+    <div class="modal-title">تسجيل حساب جديد</div>
+    <p style="font-size:13px;opacity:.8;margin-bottom:10px;">بعد إنشاء الحساب، لازم مدير النظام يفعّله ويحدد صلاحياته قبل ما تقدر تدخل.</p>
+    <div class="field-grid" style="grid-template-columns:1fr; gap:14px;">
+      <div class="field">
+        <label>اسم المستخدم</label>
+        <input id="reg_username" type="text" autocomplete="off" placeholder="اسم المستخدم">
+        <span style="font-size:11px;opacity:.75;">حروف إنجليزية صغيرة/أرقام/شرطة سفلية فقط، بدون مسافات (3-20 حرف)</span>
+      </div>
+      <div class="field"><label>كلمة المرور</label><input id="reg_password" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+    </div>
+    <div id="regMsg" style="font-size:12.5px;color:var(--accent-pink);min-height:18px;margin-top:6px;"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnRegSubmit" style="flex:1;">تسجيل حساب جديد</button>
+      <button class="btn ghost" id="btnRegClose" style="flex:1;">إلغاء</button>
     </div>
   </div>
 </div>
@@ -3127,6 +3149,10 @@ let myRole = null;      // 'admin' | 'supervisor' | 'user'
 let myProfile = null;
 let myIsActive = true;
 let myPagePermissions = {}; // per-page access map for the logged-in user
+const PRIMARY_ADMIN_USERNAME = "admin1"; // المدير الرئيسى للنظام — لا يمكن تعديله أو تعطيله أو حذفه أو تغيير صلاحيته من أى حساب آخر
+/* صلاحية "تحديد الكل / حذف المحدد / حذف كل نتائج البحث" = المدير الرئيسى للنظام (admin1) فقط */
+function canBulkDelete(){ return myRole === "admin" && !!myProfile && myProfile.username === PRIMARY_ADMIN_USERNAME; }
+function denyBulkDelete(){ toast("هذا الإجراء للمدير الرئيسى للنظام فقط","warning"); }
 
 function applyRolePermissions(){
   const isAdmin = myRole === "admin";
@@ -3137,8 +3163,9 @@ function applyRolePermissions(){
     const allowed = isAdmin || myPagePermissions[key] !== false;
     n.style.display = allowed ? "" : "none";
   });
-  document.querySelectorAll(".admin-only-btn").forEach(b=>{ b.style.display = isAdmin ? "" : "none"; });
-  document.querySelectorAll(".admin-select-col").forEach(c=>{ c.style.display = isAdmin ? "" : "none"; });
+  const canBulk = canBulkDelete();
+  document.querySelectorAll(".admin-only-btn").forEach(b=>{ b.style.display = canBulk ? "" : "none"; });
+  document.querySelectorAll(".admin-select-col").forEach(c=>{ c.style.display = canBulk ? "" : "none"; });
   const finalSaveBtn = document.getElementById("btnFinalSave");
   if(finalSaveBtn) finalSaveBtn.disabled = false;
 }
@@ -3498,10 +3525,32 @@ bindBusyClick("btnLogin", async ()=>{
   await enterApp();
 });
 
-bindBusyClick("btnRegister", async ()=>{
-  const username = document.getElementById("auth_username").value.trim();
-  const password = document.getElementById("auth_password").value;
-  const msgEl = document.getElementById("authMsg");
+/* زرار "تسجيل حساب جديد" فى شاشة الدخول يفتح نافذة التسجيل؛ منطق التسجيل
+   وتفعيل الحساب بواسطة مدير النظام زى ما هو بدون أى تغيير. */
+function openRegisterModal(){
+  document.getElementById("reg_username").value = (document.getElementById("auth_username").value || "").trim();
+  document.getElementById("reg_password").value = "";
+  const m = document.getElementById("regMsg"); m.textContent = ""; m.style.color = "var(--accent-pink)";
+  document.getElementById("registerModal").classList.add("open");
+  setTimeout(()=>document.getElementById("reg_username").focus(), 50);
+}
+function closeRegisterModal(){
+  document.getElementById("registerModal").classList.remove("open");
+  document.getElementById("reg_password").value = "";
+}
+document.getElementById("btnRegister").addEventListener("click", openRegisterModal);
+document.getElementById("btnRegClose").addEventListener("click", closeRegisterModal);
+document.getElementById("reg_username").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){ e.preventDefault(); document.getElementById("reg_password").focus(); }
+});
+document.getElementById("reg_password").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){ e.preventDefault(); document.getElementById("btnRegSubmit").click(); }
+});
+
+bindBusyClick("btnRegSubmit", async ()=>{
+  const username = document.getElementById("reg_username").value.trim();
+  const password = document.getElementById("reg_password").value;
+  const msgEl = document.getElementById("regMsg");
   msgEl.style.color = "var(--accent-pink)";
   if(!isValidUsername(username)){ msgEl.textContent = "اسم المستخدم: حروف إنجليزية/أرقام/._- فقط بدون مسافات (3-20 حرف)"; return; }
   if(!password || password.length < 6){ msgEl.textContent = "كلمة المرور 6 أحرف على الأقل"; return; }
@@ -3517,8 +3566,10 @@ bindBusyClick("btnRegister", async ()=>{
     msgEl.textContent = "تعذّر إتمام التسجيل بهذه البيانات. إذا كان لديك حساب بالفعل، تواصل مع مدير النظام.";
     return;
   }
-  msgEl.style.color = "#2e7d32";
-  msgEl.textContent = "تم إنشاء الحساب بنجاح. لازم مدير النظام يفعّل حسابك الأول من شاشة (إدارة المستخدمين) قبل ما تقدر تدخل.";
+  closeRegisterModal();
+  const authMsg = document.getElementById("authMsg");
+  authMsg.style.color = "#2e7d32";
+  authMsg.textContent = "تم إنشاء الحساب بنجاح. لازم مدير النظام يفعّل حسابك الأول من شاشة (إدارة المستخدمين) قبل ما تقدر تدخل.";
   document.getElementById("auth_password").value = "";
   refCacheDelete("usernames");
 });
@@ -3803,7 +3854,7 @@ async function loadPendingResetRequests(){
   noReq.style.display = "none";
   tbody.innerHTML = data.map(r => `
     <tr>
-      <td class="admin-select-col"><input type="checkbox" class="row-select-cb" ${resetReqSelectedIds.has(r.id)?'checked':''} data-change="toggleResetReqRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+      <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}"><input type="checkbox" class="row-select-cb" ${resetReqSelectedIds.has(r.id)?'checked':''} data-change="toggleResetReqRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td>${escapeHtml(r.username)}</td>
       <td>${(r.created_at||"").slice(0,16).replace("T"," ")}</td>
       <td>${r.status === "pending" ? '<span style="color:#f9a825;">معلّق</span>' : r.status === "approved" ? '<span style="color:#1565c0;">تمت الموافقة — بانتظار اليوزر</span>' : r.status === "completed" ? '<span style="color:#2e7d32;">مكتمل</span>' : '<span style="opacity:.5;">ملغى</span>'}</td>
@@ -3843,7 +3894,7 @@ document.getElementById("btnResetReqSelectToggle").addEventListener("click", ()=
   loadPendingResetRequests();
 });
 document.getElementById("btnResetReqDeleteSelected").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   if(resetReqSelectedIds.size===0){ toast("لم يتم تحديد أى عنصر","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${resetReqSelectedIds.size} سجل محدد؟`)) return;
   showSpinner(true);
@@ -3874,7 +3925,6 @@ async function deletePasswordResetRequest(id){
 /* =========================================================
    USERS MANAGEMENT PAGE (admin only)
 ========================================================= */
-const PRIMARY_ADMIN_USERNAME = "admin1"; // المدير الرئيسى للنظام — لا يمكن تعديله أو تعطيله أو حذفه أو تغيير صلاحيته من أى حساب آخر
 let usersCache = [];
 function isPrimaryAdmin(u){ return !!u && u.username === PRIMARY_ADMIN_USERNAME; }
 async function loadUsersPage(){
@@ -5514,7 +5564,7 @@ function renderSearchTable(){
     const canEditThis = isAdmin || myRole==="supervisor" || (r.created_by && myProfile && r.created_by === myProfile.id);
     return `
     <tr ${canEditThis ? `data-dblclick="editRow" data-args='${escapeHtml(JSON.stringify([r.id]))}' title="انقر مرتين للتعديل الكامل" style="cursor:pointer;"` : ""}>
-      <td class="admin-select-col" style="display:${isAdmin?'':'none'}"><input type="checkbox" class="row-select-cb" data-stop="1" ${searchSelectedIds.has(r.id)?'checked':''} data-change="toggleSearchRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+      <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}"><input type="checkbox" class="row-select-cb" data-stop="1" ${searchSelectedIds.has(r.id)?'checked':''} data-change="toggleSearchRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td style="white-space:nowrap;">${r.report_number||""}</td><td>${formatDateDisplay(r.report_date)}</td>
       <td>${escapeHtml(r.delivery_person||"")}</td><td>${escapeHtml(r.department||"")}</td>
       <td>${escapeHtml(r.product_name||"")}</td><td>${formatQtyNum(r.quantity)}</td>
@@ -5551,7 +5601,7 @@ document.getElementById("btnSearchSelectToggle").addEventListener("click", ()=>{
   renderSearchTable();
 });
 document.getElementById("btnSearchDeleteSelected").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const ids = Array.from(searchSelectedIds);
   if(ids.length===0){ toast("لم يتم تحديد أى عنصر","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${ids.length} عنصر محدد؟`)) return;
@@ -9544,7 +9594,7 @@ function renderArbSearchResults(){
   const body = document.getElementById("arbSearchTableBody");
   const head = document.getElementById("arbSearchTableHead");
   const isAdmin = myRole === "admin";
-  const selTh = `<th class="admin-select-col" style="display:${isAdmin?'':'none'};">تحديد</th>`;
+  const selTh = `<th class="admin-select-col" style="display:${canBulkDelete()?'':'none'};">تحديد</th>`;
   let rows = [];
   /* One row per form (session) is shown here, using only its first judge's
      opinion — full editing (arbEditArbSession) and Excel/report export both
@@ -9562,7 +9612,7 @@ function renderArbSearchResults(){
       const opinions = sess.opinions||[];
       const o = opinions[0]||{};
       const extraCount = opinions.length>1?` <span style="opacity:.65;">(+${opinions.length-1})</span>`:"";
-      const selCell = `<td class="admin-select-col" style="display:${isAdmin?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
+      const selCell = `<td class="admin-select-col" style="display:${canBulkDelete()?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
       rows.push(`<tr>${selCell}<td>${m++}</td><td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(sess.product_name||"")}</td>
         <td>${escapeHtml(sess.official_name||"")}</td><td>${escapeHtml(sess.department||"")}</td>
         <td>${escapeHtml(o.judge_name||"")}${extraCount}</td><td>${escapeHtml(o.job_title||"")}</td>
@@ -9582,7 +9632,7 @@ function renderArbSearchResults(){
       const o = opinions[0]||{};
       const best = (sess.samples||[]).find(s=>s.no===o.best_sample_no);
       const allJudges = opinions.map(op=>op.judge_name).filter(Boolean).join(" / ");
-      const selCell = `<td class="admin-select-col" style="display:${isAdmin?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
+      const selCell = `<td class="admin-select-col" style="display:${canBulkDelete()?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
       rows.push(`<tr>${selCell}<td>${m++}</td><td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(samplesTxt)}</td>
         <td>${escapeHtml(sess.official_name||"")}</td><td>${escapeHtml(sess.department||"")}</td>
         <td>${escapeHtml(allJudges)}</td><td>${escapeHtml(o.job_title||"")}</td>
@@ -9701,7 +9751,7 @@ document.getElementById("btnArbSelectToggle").addEventListener("click", ()=>{
   renderArbSearchResults();
 });
 document.getElementById("btnArbDeleteSelected").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   if(arbSelectedKeys.size===0){ toast("لم يتم تحديد أى عنصر","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${arbSelectedKeys.size} نموذج تحكيم بالكامل (بكل آراء المُحكَمين بداخله)؟`)) return;
   showSpinner(true);
@@ -10436,7 +10486,7 @@ function renderRcvSearchTable(){
     const canEditThis = isAdmin || myRole==="supervisor" || (r.created_by && myProfile && r.created_by === myProfile.id);
     return `
     <tr>
-      <td class="admin-select-col" style="display:${isAdmin?'':'none'}"><input type="checkbox" class="row-select-cb" ${rcvSelectedIds.has(r.id)?'checked':''} data-change="toggleRcvRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+      <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}"><input type="checkbox" class="row-select-cb" ${rcvSelectedIds.has(r.id)?'checked':''} data-change="toggleRcvRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td>${escapeHtml(r.shift||"")}</td><td>${formatDateDisplay(r.receipt_date)}</td>
       <td>${escapeHtml(r.material_code||"")}</td><td class="${issueClass}"${issueTitle}>${escapeHtml(r.material_name||"")}</td>
       <td>${escapeHtml(r.supplier||"")}</td><td>${formatQtyFlexible(r.quantity)}</td>
@@ -10480,7 +10530,7 @@ document.getElementById("btnRcvSelectToggle").addEventListener("click", ()=>{
   renderRcvSearchTable();
 });
 document.getElementById("btnRcvDeleteSelected").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const ids = Array.from(rcvSelectedIds);
   if(ids.length===0){ toast("لم يتم تحديد أى عنصر","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${ids.length} عنصر محدد؟`)) return;
@@ -12072,7 +12122,7 @@ function renderNcSearchTable(){
     const canEditThis = isAdmin || myRole==="supervisor" || (r.created_by && myProfile && r.created_by === myProfile.id);
     return `
     <tr ${canEditThis ? `data-dblclick="editNcRow" data-args='${escapeHtml(JSON.stringify([r.id]))}' title="انقر مرتين للتعديل الكامل" style="cursor:pointer;"` : ""}>
-      <td class="admin-select-col" style="display:${isAdmin?'':'none'}"><input type="checkbox" class="row-select-cb" data-stop="1" ${ncSearchSelectedIds.has(r.id)?'checked':''} data-change="toggleNcSearchRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+      <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}"><input type="checkbox" class="row-select-cb" data-stop="1" ${ncSearchSelectedIds.has(r.id)?'checked':''} data-change="toggleNcSearchRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td style="white-space:nowrap;">${escapeHtml(r.case_number||"")}</td><td>${formatDateDisplay(r.report_date)}</td>
       <td>${escapeHtml(r.shift||"")}</td><td>${escapeHtml(r.nc_type||"")}</td><td>${escapeHtml(r.department||"")}</td>
       <td>${escapeHtml(r.time_from||"")}</td><td>${escapeHtml(r.time_to||"")}</td>
@@ -12108,7 +12158,7 @@ document.getElementById("btnNcSelectToggle").addEventListener("click", ()=>{
   renderNcSearchTable();
 });
 document.getElementById("btnNcDeleteSelected").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const ids = Array.from(ncSearchSelectedIds);
   if(ids.length===0){ toast("لم يتم تحديد أى عنصر","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${ids.length} عنصر محدد؟`)) return;
@@ -12124,7 +12174,7 @@ document.getElementById("btnNcDeleteSelected").addEventListener("click", async (
   loadDashboardStats();
 });
 document.getElementById("btnNcDeleteAllMatching").addEventListener("click", async ()=>{
-  if(myRole !== "admin") return;
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const total = ncSearchTotalCount;
   if(total === 0){ toast("لا توجد نتائج مطابقة للحذف","warning"); return; }
   if(!confirm(`سيتم حذف كل السجلات المطابقة لفلاتر البحث الحالية نهائيًا من قاعدة البيانات، وليس فقط المعروض فى هذه الصفحة.\n\nإجمالى السجلات المطابقة: ${total}\n\nهل تريد المتابعة؟`)) return;
@@ -13055,6 +13105,7 @@ function smpListToggleAll(){
   smpUpdateListUi();
 }
 async function smpListDeleteSelected(){
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const ids = Array.from(smpListSelectedIds);
   if(ids.length===0){ toast("لم يتم تحديد أى عينة","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${ids.length} عينة محددة؟\nسيتم أيضاً حذف سجل الفحوصات الخاص بها، ولا يمكن التراجع.`)) return;
@@ -13083,7 +13134,7 @@ async function smpListDeleteSelected(){
 function smpRowHtml(r){
   const tested = !!r.last_test_date;
   return `<tr id="smpRow_${r.id}" class="${tested?'smp-tested-row':''}" data-click="smpSelectSample" data-args='${escapeHtml(JSON.stringify([r.id]))}' style="cursor:pointer;">
-    <td data-click="smpNoop" data-stop="1"><input type="checkbox" class="row-select-cb smp-list-cb" ${smpListSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpListSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+    <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}" data-click="smpNoop" data-stop="1"><input type="checkbox" class="row-select-cb smp-list-cb" ${smpListSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpListSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
     <td>${escapeHtml(r.retention_label||"")}</td>
     <td>${escapeHtml(r.department||"")}</td>
     <td>${formatDateDisplay(r.pull_date)}</td>
@@ -13387,6 +13438,7 @@ document.getElementById("btnSmpSelectToggle").addEventListener("click", ()=>{
   smpUpdateBulkUi();
 });
 document.getElementById("btnSmpDeleteSelected").addEventListener("click", async ()=>{
+  if(!canBulkDelete()){ denyBulkDelete(); return; }
   const ids = Array.from(smpSearchSelectedIds);
   if(ids.length===0){ toast("لم يتم تحديد أى عينة","warning"); return; }
   if(!confirm(`هل أنت متأكد من حذف ${ids.length} عينة محددة؟\nسيتم أيضاً حذف سجل الفحوصات الخاص بها، ولا يمكن التراجع.`)) return;
@@ -13437,7 +13489,7 @@ async function runSmpSearch(opts){
   document.getElementById("smpSearchTotalCount").textContent = smpLastSearchResults.length;
   const smpRowHtml = r=>`
     <tr>
-      <td><input type="checkbox" class="row-select-cb smp-row-cb" data-stop="1" ${smpSearchSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
+      <td class="admin-select-col" style="display:${canBulkDelete()?'':'none'}"><input type="checkbox" class="row-select-cb smp-row-cb" data-stop="1" ${smpSearchSelectedIds.has(r.id)?'checked':''} data-change="toggleSmpRowSelect" data-args='${escapeHtml(JSON.stringify([r.id, "__CHECKED__"]))}'></td>
       <td>${r.sample_no??""}</td><td>${escapeHtml(r.retention_label||"")}</td><td>${escapeHtml(r.department||"")}</td>
       <td>${formatDateDisplay(r.pull_date)}</td><td>${escapeHtml(r.product_name||"")}</td>
       <td>${formatDateDisplay(r.production_date)}</td><td>${formatDateDisplay(r.expiry_date)}</td>
