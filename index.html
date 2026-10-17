@@ -278,6 +278,12 @@ CREATE POLICY "eo_employees auth all" ON eo_employees FOR ALL TO authenticated U
 DROP POLICY IF EXISTS "eo_orders auth all" ON eo_orders;
 CREATE POLICY "eo_orders auth all" ON eo_orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+-- =====================================================================
+-- 8. عمود نوع الوحدة للاستلامات (كيلو جرام / طن / جرام) — شغّل مرة واحدة فى SQL Editor
+--    البيانات القديمة بدون قيمة تحسب كجم افتراضياً عند تصدير الإجمالى.
+-- =====================================================================
+ALTER TABLE material_receipts ADD COLUMN IF NOT EXISTS unit TEXT;
+
 -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -775,6 +781,63 @@ tbody tr:hover{background:#ffe9f2;}
 .modal-box .table-wrap table td.name-col{white-space:normal;word-break:break-word;text-align:right;}
 .modal-box .table-wrap table th.action-col,.modal-box .table-wrap table td.action-col{width:1%;white-space:nowrap;}
 .modal-box .table-wrap table tr:last-child td{border-bottom:none;}
+
+/* ===== RECEIVING — EXCEL IMPORT (رفع استلامات الخامات من Excel) ===== */
+.btn.btn-imp{background:linear-gradient(135deg,#198754,#20a56a);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(25,135,84,.35);}
+.btn.btn-imp:hover{background:linear-gradient(135deg,#157347,#198754);}
+#rcvImpModal .modal-box{max-width:1180px;width:97%;}
+.rcvImp-steps{display:flex;gap:8px;margin:0 0 14px;}
+.rcvImp-step{flex:1;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border-thin);border-radius:8px;font-size:12px;opacity:.5;transition:.15s;}
+.rcvImp-step b{width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:var(--border-thin);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.rcvImp-step.active{opacity:1;border-color:var(--accent-pink);}
+.rcvImp-step.active b{background:var(--accent-pink);}
+.rcvImp-step.done{opacity:1;border-color:#2e7d32;}
+.rcvImp-step.done b{background:#2e7d32;}
+.rcvImp-intro{font-size:12.5px;line-height:1.9;padding:10px 14px;border-radius:8px;background:var(--bg-header);margin-bottom:10px;}
+.rcvImp-intro ul{margin:4px 0 0;padding-right:18px;}
+.rcvImp-drop{border:2px dashed var(--border-thin);border-radius:12px;padding:30px 16px;text-align:center;cursor:pointer;transition:.15s;}
+.rcvImp-drop:hover,.rcvImp-drop.drag{border-color:var(--accent-pink);background:rgba(214,51,132,.06);}
+.rcvImp-drop .big{font-size:36px;line-height:1.2;}
+.rcvImp-drop .sub{font-size:12px;opacity:.75;margin-top:4px;}
+.rcvImp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:0 0 12px;}
+.rcvImp-card{border:1px solid var(--border-thin);border-radius:10px;padding:8px 10px;text-align:center;}
+.rcvImp-card .n{font-size:22px;font-weight:900;line-height:1.3;}
+.rcvImp-card .l{font-size:11.5px;opacity:.8;}
+.rcvImp-card.ok .n{color:#2e7d32;}
+.rcvImp-card.err .n{color:#c62828;}
+.rcvImp-card.warn .n{color:#e08a00;}
+.rcvImp-card.dup .n{color:#6c757d;}
+.rcvImp-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;}
+.rcvImp-toolbar select{padding:5px 8px;font-size:12px;}
+.rcvImp-toolbar label{display:flex;gap:6px;align-items:center;cursor:pointer;}
+.rcvImp-fname{opacity:.75;margin-right:auto;}
+.rcvImp-tablewrap{max-height:44vh;overflow:auto;border:1px solid var(--border-thin);border-radius:8px;}
+.rcvImp-tablewrap table{width:100%;border-collapse:collapse;font-size:12px;}
+.rcvImp-tablewrap thead th{position:sticky;top:0;z-index:2;background:var(--bg-header);padding:7px 6px;white-space:nowrap;border-bottom:2px solid var(--border-thin);}
+.rcvImp-tablewrap tbody td{padding:5px 6px;border-bottom:1px solid var(--border-thin);text-align:center;white-space:nowrap;}
+.rcvImp-tablewrap tbody td.msg{white-space:normal;text-align:right;min-width:260px;font-size:11.5px;line-height:1.7;}
+.rcvImp-tablewrap tr.rcvImp-err td{background:rgba(198,40,40,.10);}
+.rcvImp-tablewrap tr.rcvImp-warn td{background:rgba(249,168,37,.12);}
+.rcvImp-tablewrap tr.rcvImp-dup td{opacity:.6;}
+.rcvImp-tablewrap tr.rcvImp-done td{background:rgba(46,125,50,.12);}
+.rcvImp-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;color:#fff;}
+.rcvImp-pill.ok{background:#2e7d32;}
+.rcvImp-pill.err{background:#c62828;}
+.rcvImp-pill.warn{background:#e08a00;}
+.rcvImp-pill.dup{background:#6c757d;}
+.rcvImp-pill.done{background:#0d6efd;}
+.rcvImp-e{color:#c62828;display:block;}
+.rcvImp-w{color:#b36b00;display:block;}
+[data-theme="dark"] .rcvImp-e{color:#ff8a80;}
+[data-theme="dark"] .rcvImp-w{color:#ffd180;}
+.rcvImp-progress{height:12px;border-radius:8px;background:var(--bg-header);overflow:hidden;margin:14px 0 8px;}
+.rcvImp-progress .bar{height:100%;width:0;background:linear-gradient(90deg,#198754,#20a56a);transition:width .2s;}
+.rcvImp-result{text-align:center;padding:18px 8px;font-size:14px;line-height:2;}
+.rcvImp-result .big{font-size:42px;}
+@media (max-width:860px){
+  .rcvImp-steps{flex-direction:column;}
+  .rcvImp-tablewrap{max-height:40vh;}
+}
 
 /* ===== IMAGE THUMBNAILS / GALLERY ===== */
 .img-thumb{position:relative;width:70px;height:70px;border-radius:6px;overflow:hidden;border:1px solid var(--border-thin);}
@@ -1308,6 +1371,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
           <button class="active" id="tabRcvNew">تسجيل أمر توريد جديد</button>
           <button id="tabRcvSearch">البحث</button>
           <button class="btn info" id="btnOpenMaterialsAdmin" style="display:none;">📖 المجموعات والخامات</button>
+          <button class="btn btn-imp" id="btnOpenRcvImport" title="رفع استلامات الخامات من ملف Excel بعد فحصها">📤 رفع بيانات من Excel</button>
         </div>
 
         <!-- NEW ENTRY MODE -->
@@ -1322,7 +1386,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <div class="field">
                 <label>كود الخامة</label>
                 <div style="display:flex;gap:6px;">
-                  <input id="f2_material_search" placeholder="اكتب كود أو اسم الخامة..." autocomplete="off" list="dl_rcv_material" style="flex:1;">
+                  <input id="f2_material_search" placeholder="اكتب كود أو اسم الخامة..." autocomplete="off" list="dl_rcv_material" style="flex:1;min-width:0;">
                   <button type="button" class="icon-btn" id="btnPickMaterial" title="اختيار من القائمة">📖</button>
                 </div>
                 <input type="hidden" id="f2_material_id">
@@ -1333,10 +1397,17 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
               <div class="field"><label>المورد</label><input id="f2_supplier" list="dl_rcv_supplier" placeholder="اسم المورد" required></div>
               <div class="field"><label>الشركة المصنعة</label><input id="f2_manufacturer" list="dl_rcv_manufacturer" placeholder="الشركة المصنعة"></div>
               <div class="field"><label>المنشأ</label><input id="f2_origin" list="dl_rcv_origin" placeholder="المنشأ"></div>
-              <div class="field"><label>الكمية</label><input type="text" id="f2_quantity" placeholder="مثال: 500 أو 500 كيس"></div>
+              <div class="field"><label>الكمية ونوع الوحدة</label>
+                <div style="display:flex;gap:6px;">
+                  <input type="text" id="f2_quantity" placeholder="مثال: 500 أو 500 كيس" style="flex:1;min-width:0;">
+                  <select id="f2_unit" style="width:105px;flex:0 0 auto;">
+                    <option>كيلو جرام</option><option>طن</option><option>جرام</option>
+                  </select>
+                </div>
+              </div>
               <div class="field"><label>المستلم</label>
                 <div style="display:flex;gap:6px;">
-                  <input id="f2_recipient" list="dl_rcv_recipient" placeholder="اسم المستلم" style="flex:1;">
+                  <input id="f2_recipient" list="dl_rcv_recipient" placeholder="اسم المستلم" style="flex:1;min-width:0;">
                   <button type="button" class="icon-btn" id="btnOpenEngineersAdmin" title="إدارة أسماء المهندسين">👤</button>
                 </div>
               </div>
@@ -1805,6 +1876,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
         </div>
       </div>
 
+      <datalist id="dl_eo_names"></datalist>
       <div class="page" id="page-extraorders">
         <div class="btn-row">
           <button class="btn primary" id="btnEoOpenEmps">👥 إضافة / إدارة الموظفين (كود - اسم - وظيفة)</button>
@@ -1814,8 +1886,8 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <div class="field"><label>الوردية</label><select id="eo_shift"><option>صباحية</option><option>مسائية</option></select></div>
             <div class="field"><label>التاريخ</label><input type="date" id="eo_date"></div>
             <div class="field readonly-field"><label>اليوم</label><input id="eo_day" readonly></div>
-            <div class="field"><label>كود الموظف</label><select id="eo_code"></select><span id="eo_hint" style="font-size:12px;min-height:16px;"></span></div>
-            <div class="field readonly-field"><label>اسم الموظف</label><input id="eo_name" readonly placeholder="يظهر تلقائياً"></div>
+            <div class="field"><label>اسم الموظف</label><input id="eo_name" list="dl_eo_names" data-fold="1" autocomplete="off" placeholder="اكتب حروف من الاسم أو اختر من القائمة"><span id="eo_hint" style="font-size:12px;min-height:16px;"></span></div>
+            <div class="field readonly-field"><label>كود الموظف</label><input id="eo_code" readonly placeholder="يظهر تلقائياً"></div>
             <div class="field readonly-field"><label>الوظيفة</label><input id="eo_job" readonly placeholder="تظهر تلقائياً"></div>
             <div class="field"><label>نوع أمر التكليف</label><select id="eo_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
             <div class="field" style="grid-column:1/-1;"><label>العمل المكلف به</label><textarea id="eo_work" rows="3"></textarea></div>
@@ -1830,7 +1902,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <div class="field"><label>من تاريخ</label><input type="date" id="eoF_from"></div>
             <div class="field"><label>إلى تاريخ</label><input type="date" id="eoF_to"></div>
             <div class="field"><label>كود الموظف</label><input id="eoF_code" autocomplete="off" placeholder="بحث بالكود"></div>
-            <div class="field"><label>اسم الموظف</label><input id="eoF_name" autocomplete="off" placeholder="بحث بالاسم"></div>
+            <div class="field"><label>اسم الموظف</label><input id="eoF_name" list="dl_eo_names" data-fold="1" autocomplete="off" placeholder="بحث بالاسم"></div>
             <div class="field"><label>الوردية</label><select id="eoF_shift"><option>صباحية</option><option>مسائية</option></select></div>
             <div class="field"><label>نوع أمر التكليف</label><select id="eoF_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
             <div class="field" style="flex-direction:row;gap:8px;align-items:end;">
@@ -1845,6 +1917,11 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             <tbody id="eoOrdersBody"></tbody>
           </table></div>
           <div class="total-bar">عدد الأوامر = <span id="eoCount">0</span></div>
+          <div class="pagination-bar no-print" id="eoPagination">
+            <button id="eoPagePrev">◀ السابق</button>
+            <span class="page-info" id="eoPageInfo">صفحة 1 من 1</span>
+            <button id="eoPageNext">التالى ▶</button>
+          </div>
         </div>
       </div>
 
@@ -2258,7 +2335,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
       <div class="field">
         <label>كود الخامة</label>
         <div style="display:flex;gap:6px;">
-          <input id="e2_material_search" placeholder="اكتب كود أو اسم الخامة..." autocomplete="off" list="dl_rcv_material" style="flex:1;">
+          <input id="e2_material_search" placeholder="اكتب كود أو اسم الخامة..." autocomplete="off" list="dl_rcv_material" style="flex:1;min-width:0;">
           <button type="button" class="icon-btn" id="btnPickMaterialEdit" title="اختيار من القائمة">📖</button>
         </div>
         <input type="hidden" id="e2_material_id">
@@ -2269,7 +2346,14 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
       <div class="field"><label>المورد</label><input id="e2_supplier" list="dl_rcv_supplier" required></div>
       <div class="field"><label>الشركة المصنعة</label><input id="e2_manufacturer" list="dl_rcv_manufacturer"></div>
       <div class="field"><label>المنشأ</label><input id="e2_origin" list="dl_rcv_origin"></div>
-      <div class="field"><label>الكمية (كجم)</label><input type="text" id="e2_quantity" placeholder="مثال: 500 أو 500 كيس"></div>
+      <div class="field"><label>الكمية ونوع الوحدة</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="e2_quantity" placeholder="مثال: 500 أو 500 كيس" style="flex:1;min-width:0;">
+          <select id="e2_unit" style="width:105px;flex:0 0 auto;">
+            <option>كيلو جرام</option><option>طن</option><option>جرام</option>
+          </select>
+        </div>
+      </div>
       <div class="field"><label>المستلم</label><input id="e2_recipient" list="dl_rcv_recipient"></div>
       <div class="field"><label>شهادات تحليل</label>
         <select id="e2_analysis_cert"><option value="" disabled selected hidden></option><option>مرسل</option><option>لم يرسل</option><option>تم طلبه</option></select>
@@ -2330,6 +2414,95 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
       </table>
     </div>
     <div class="btn-row"><button class="btn ghost" id="btnCloseBatchDatesModal">تم / إغلاق</button></div>
+  </div>
+</div>
+
+<!-- RECEIVING — EXCEL IMPORT MODAL (رفع بيانات استلامات الخامات من Excel) -->
+<div id="rcvImpModal" class="modal-overlay">
+  <div class="modal-box">
+    <span class="modal-x-close" data-close-target="btnRcvImpClose" title="إغلاق">✕</span>
+    <div class="modal-title">📤 رفع بيانات استلامات الخامات من Excel</div>
+
+    <div class="rcvImp-steps">
+      <div class="rcvImp-step active" id="rcvImpStep1"><b>1</b><span>تجهيز الملف</span></div>
+      <div class="rcvImp-step" id="rcvImpStep2"><b>2</b><span>فحص ومراجعة البيانات</span></div>
+      <div class="rcvImp-step" id="rcvImpStep3"><b>3</b><span>الرفع على قاعدة البيانات</span></div>
+    </div>
+
+    <!-- STAGE 1: template + file -->
+    <div id="rcvImpStage1">
+      <div class="rcvImp-intro">
+        <b>طريقة الاستخدام:</b>
+        <ul>
+          <li>حمّل نموذج Excel — أعمدته مرتبة بنفس ترتيب حقول فورم الاستلام وبيانات قاعدة البيانات، وفيه قوائم اختيار جاهزة.</li>
+          <li>الأعمدة ذات العنوان <b style="color:#c0392b;">الأحمر</b> إلزامية: الوردية، التاريخ، كود الخامة، المورد، الحالة.</li>
+          <li>لو للخامة أكثر من تشغيلة اكتبها فى نفس الخلية مفصولة بعلامة <b>|</b> بنفس الترتيب فى (تاريخ الإنتاج / تاريخ الإنتهاء / رقم التشغيلة).</li>
+          <li>الصور لا تُرفع من Excel، تُضاف لاحقاً من شاشة التعديل.</li>
+          <li>سيتم فحص كل صف قبل الرفع، ولن يُرفع أى شىء إلا بعد مراجعتك وتأكيدك.</li>
+        </ul>
+      </div>
+      <div class="btn-row">
+        <button class="btn info" id="btnRcvImpTemplate">⬇️ تحميل نموذج Excel</button>
+      </div>
+      <div class="rcvImp-drop" id="rcvImpDrop">
+        <div class="big">📄</div>
+        <div><b>اسحب ملف Excel هنا أو اضغط للاختيار</b></div>
+        <div class="sub">صيغة .xlsx — حتى ٥٠٬٠٠٠ صف</div>
+        <input type="file" id="rcvImpFile" accept=".xlsx" style="display:none;">
+      </div>
+    </div>
+
+    <!-- STAGE 2: review -->
+    <div id="rcvImpStage2" style="display:none;">
+      <div class="rcvImp-cards">
+        <div class="rcvImp-card"><div class="n" id="rcvImpCTotal">0</div><div class="l">إجمالى الصفوف</div></div>
+        <div class="rcvImp-card ok"><div class="n" id="rcvImpCOk">0</div><div class="l">سليم</div></div>
+        <div class="rcvImp-card warn"><div class="n" id="rcvImpCWarn">0</div><div class="l">به تحذيرات</div></div>
+        <div class="rcvImp-card err"><div class="n" id="rcvImpCErr">0</div><div class="l">به أخطاء</div></div>
+        <div class="rcvImp-card dup"><div class="n" id="rcvImpCDup">0</div><div class="l">مكرر محتمل</div></div>
+      </div>
+      <div class="rcvImp-toolbar">
+        <label>عرض:
+          <select id="rcvImpFilter">
+            <option value="all">الكل</option>
+            <option value="err">الأخطاء فقط</option>
+            <option value="warn">التحذيرات فقط</option>
+            <option value="ok">السليم فقط</option>
+            <option value="dup">المكرر فقط</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="rcvImpSkipDup" checked> تخطى السجلات المكررة المحتملة</label>
+        <span class="rcvImp-fname" id="rcvImpFileName"></span>
+      </div>
+      <div class="rcvImp-tablewrap">
+        <table>
+          <thead><tr>
+            <th>صف Excel</th><th>النتيجة</th><th>الوردية</th><th>التاريخ</th><th>كود الخامة</th><th>إسم الخامة</th>
+            <th>المورد</th><th>الكمية</th><th>الحالة</th><th>القرار</th><th>التشغيلات</th><th>الملاحظات / نتيجة الفحص</th>
+          </tr></thead>
+          <tbody id="rcvImpTbody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btnRcvImpUpload">✅ رفع السجلات</button>
+        <button class="btn info" id="btnRcvImpErrReport">📋 تنزيل تقرير الفحص</button>
+        <button class="btn ghost" id="btnRcvImpAnother">اختيار ملف آخر</button>
+      </div>
+    </div>
+
+    <!-- STAGE 3: progress / result -->
+    <div id="rcvImpStage3" style="display:none;">
+      <div class="rcvImp-progress"><div class="bar" id="rcvImpBar"></div></div>
+      <div id="rcvImpProgText" style="text-align:center;font-size:13px;"></div>
+      <div class="rcvImp-result" id="rcvImpResult" style="display:none;"></div>
+      <div class="btn-row" id="rcvImpStage3Btns" style="display:none;justify-content:center;">
+        <button class="btn primary" id="btnRcvImpRetry" style="display:none;">إعادة محاولة رفع المتبقى</button>
+        <button class="btn info" id="btnRcvImpBackReview">العودة للمراجعة</button>
+        <button class="btn ghost" id="btnRcvImpNewFile">رفع ملف آخر</button>
+      </div>
+    </div>
+
+    <button class="btn ghost" id="btnRcvImpClose">إغلاق</button>
   </div>
 </div>
 
@@ -2988,8 +3161,8 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
       <div class="field"><label>الوردية</label><select id="eoU_shift"><option>صباحية</option><option>مسائية</option></select></div>
       <div class="field"><label>التاريخ</label><input type="date" id="eoU_date"></div>
       <div class="field readonly-field"><label>اليوم</label><input id="eoU_day" readonly></div>
-      <div class="field"><label>كود الموظف</label><select id="eoU_code"></select><span id="eoU_hint" style="font-size:12px;min-height:16px;"></span></div>
-      <div class="field readonly-field"><label>اسم الموظف</label><input id="eoU_name" readonly></div>
+      <div class="field"><label>اسم الموظف</label><input id="eoU_name" list="dl_eo_names" data-fold="1" autocomplete="off" placeholder="اكتب حروف من الاسم أو اختر من القائمة"><span id="eoU_hint" style="font-size:12px;min-height:16px;"></span></div>
+      <div class="field readonly-field"><label>كود الموظف</label><input id="eoU_code" readonly placeholder="يظهر تلقائياً"></div>
       <div class="field readonly-field"><label>الوظيفة</label><input id="eoU_job" readonly></div>
       <div class="field"><label>نوع أمر التكليف</label><select id="eoU_type"><option>بدل</option><option>سهر</option><option>يوم الجمعة</option></select></div>
       <div class="field" style="grid-column:1/-1;"><label>العمل المكلف به</label><textarea id="eoU_work" rows="3"></textarea></div>
@@ -4717,7 +4890,15 @@ function enhanceSearchableSelect(inputId){
   function renderOptions(filterText){
     const all = sourceOptions();
     const f = (filterText||"").trim().toLowerCase();
-    currentOptions = f ? all.filter(v=>v.toLowerCase().includes(f)) : all;
+    if(input.dataset.fold === "1"){
+      /* بحث بالحروف: يتجاهل التشكيل واختلاف (أ إ آ ا) و(ى ي) و(ة ه) ويطابق كل كلمات المكتوب */
+      const fold = t=>String(t==null?"":t).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+        .replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/\s+/g," ").trim();
+      const toks = fold(filterText).split(" ").filter(Boolean);
+      currentOptions = toks.length ? all.filter(v=>{ const fv = fold(v); return toks.every(t=>fv.includes(t)); }) : all;
+    } else {
+      currentOptions = f ? all.filter(v=>v.toLowerCase().includes(f)) : all;
+    }
     activeIndex = -1;
     dropdown.innerHTML = currentOptions.length
       ? currentOptions.slice(0,200).map((v,i)=>`<div class="smart-select-opt" data-idx="${i}">${escapeHtml(v)}</div>`).join("")
@@ -10129,6 +10310,56 @@ setInterval(()=>{
   }
 });
 
+/* ===== نوع الوحدة (كيلو جرام / طن / جرام) =====
+   عمود unit اختيارى فى جدول material_receipts (شغّل SQL القسم 8 أعلى الملف مرة واحدة).
+   لو العمود مش مضاف بعد، الحفظ والتعديل يعملان تلقائياً بدون الوحدة بدل أن يتوقفا،
+    والتصدير يحسب الكميات بالطن (كيلو جرام ×0.001، جرام ×0.000001) والقديم بدون وحدة يُحسب كجم. */
+const RCV_UNIT_TO_KG = { "كيلو جرام":1, "طن":1000, "جرام":0.001 };
+const RCV_UNIT_TO_TONS = { "كيلو جرام":0.001, "طن":1, "جرام":0.000001 };
+let rcvUnitSupported = true;
+function stripRcvUnit(rows){
+  const one = !Array.isArray(rows);
+  const arr = one ? [rows] : rows;
+  const out = arr.map(r=>{ const c = {...r}; delete c.unit; return c; });
+  return one ? out[0] : out;
+}
+async function insertRcvRows(rows){
+  if(rcvUnitSupported){
+    const res = await sb.from(RCV_TABLE).insert(rows).select();
+    if(res.error && res.error.code === "42703"){
+      rcvUnitSupported = false;
+      return sb.from(RCV_TABLE).insert(stripRcvUnit(rows)).select();
+    }
+    return res;
+  }
+  return sb.from(RCV_TABLE).insert(stripRcvUnit(rows)).select();
+}
+async function updateRcvRow(id, entry){
+  if(rcvUnitSupported){
+    const res = await sb.from(RCV_TABLE).update(entry).eq("id", id);
+    if(res.error && res.error.code === "42703"){
+      rcvUnitSupported = false;
+      return sb.from(RCV_TABLE).update(stripRcvUnit(entry)).eq("id", id);
+    }
+    return res;
+  }
+  return sb.from(RCV_TABLE).update(stripRcvUnit(entry)).eq("id", id);
+}
+function rcvQtyToKg(qty, unit){
+  if(qty===null || qty===undefined) return null;
+  const s = String(qty).trim();
+  if(!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const f = RCV_UNIT_TO_KG[String(unit||"").trim()];
+  return Number(s) * (f===undefined ? 1 : f);
+}
+function rcvQtyToTons(qty, unit){
+  if(qty===null || qty===undefined) return null;
+  const s = String(qty).trim();
+  const m = s.match(/-?\d+(\.\d+)?/);
+  if(!m) return null;
+  const f = RCV_UNIT_TO_TONS[String(unit||"").trim()];
+  return Number(m[0]) * (f===undefined ? 0.001 : f);
+}
 function readRcvForm(){
   return {
     shift: document.getElementById("f2_shift").value,
@@ -10141,6 +10372,7 @@ function readRcvForm(){
     manufacturer: document.getElementById("f2_manufacturer").value.trim() || null,
     origin: document.getElementById("f2_origin").value.trim() || null,
     quantity: document.getElementById("f2_quantity").value.trim() || null,
+    unit: document.getElementById("f2_unit").value || "كيلو جرام",
     analysis_certificates: document.getElementById("f2_analysis_cert").value || null,
     customs_clearance: document.getElementById("f2_customs").value || null,
     status: document.getElementById("f2_status").value || null,
@@ -10200,7 +10432,7 @@ function refreshRcvBatchTable(){
     return `<tr data-dblclick="editRcvBatchRow" data-args='${escapeHtml(JSON.stringify([i]))}' style="cursor:pointer;" title="انقر مرتين للتعديل قبل الحفظ النهائى">
       <td>${escapeHtml(e.shift||"")}</td><td>${formatDateDisplay(e.receipt_date)}</td>
       <td>${escapeHtml(e.material_code||"")}</td><td class="${issueClass}"${issueTitle}>${escapeHtml(e.material_name||"")}</td>
-      <td>${escapeHtml(e.supplier||"")}</td><td>${formatQtyFlexible(e.quantity)}</td>
+      <td>${escapeHtml(e.supplier||"")}</td>      <td>${formatQtyFlexible(e.quantity)}${e.unit ? " "+e.unit : ""}</td>
       <td>${escapeHtml(e.status||"")}</td><td>${escapeHtml(e.decision||"")}</td>
       <td>${imgCount>0 ? "🖼️ "+imgCount : "—"}</td>
       <td class="row-actions">
@@ -10231,6 +10463,7 @@ function editRcvBatchRow(i){
   document.getElementById("f2_manufacturer").value = e.manufacturer || "";
   document.getElementById("f2_origin").value = e.origin || "";
   document.getElementById("f2_quantity").value = e.quantity ?? "";
+  document.getElementById("f2_unit").value = e.unit || "كيلو جرام";
   document.getElementById("f2_recipient").value = e.recipient || "";
   document.getElementById("f2_analysis_cert").value = e.analysis_certificates || "";
   document.getElementById("f2_customs").value = e.customs_clearance || "";
@@ -10267,6 +10500,7 @@ function clearRcvForm(){
     document.getElementById(id).value = "";
   });
   setDateValue("f2_date", egyptTodayStr());
+  document.getElementById("f2_unit").value = "كيلو جرام";
   refreshFormMaterialIssueHighlight("f2");
   rcvBatchLines = [];
   resetRcvBatchLineForm();
@@ -10292,7 +10526,7 @@ bindBusyClick("btnRcvFinalSave", async ()=>{
     created_at: stamp, created_by: myProfile?myProfile.id:null, created_by_name: myProfile?myProfile.username:null,
     updated_at: stamp, updated_by: myProfile?myProfile.id:null, updated_by_name: myProfile?myProfile.username:null
   }));
-  const { data: inserted, error } = await sb.from(RCV_TABLE).insert(payload).select();
+  const { data: inserted, error } = await insertRcvRows(payload);
   showSpinner(false);
   if(error){ toast("خطأ فى الحفظ: "+error.message,"error"); return; }
   const savedBatch = rcvBatch.slice();
@@ -10347,6 +10581,673 @@ document.getElementById("tabRcvSearch").addEventListener("click", ()=>{
   if(rcvSearchResults.length) renderRcvSearchTable(); /* instant paint of last results */
   runRcvSearch({ silent:true });
 });
+
+/* =========================================================
+   RECEIVING — EXCEL IMPORT (رفع استلامات الخامات من Excel)
+   Flow: template -> pick file -> validate every row (same rules as the
+   entry form + extra QA checks) -> review screen -> chunked insert into
+   material_receipts with the same audit fields as the manual final save.
+========================================================= */
+const RCV_IMP_LISTS = {
+  shifts:    ["الصباحية","المسائية"],
+  certs:     ["مرسل","لم يرسل","تم طلبه"],
+  statuses:  ["مطابق","غير مطابق","تحت الفحص","غير مطابق ونزول بتعليمات اداريه"],
+  decisions: ["نزول بالمخازن","ارتجاع للمورد","جارى الفحص","يتم استلامه وتوجيهه","عدم التحميل","تحميل"],
+  ratings:   ["مرفوض","مقبول","جيد","جيد جدا","ممتاز"]
+};
+const RCV_IMP_MAX_ROWS = 50000;
+const RCV_IMP_RENDER_CAP = 1000;
+const RCV_IMP_CHUNK = 200;
+const RCV_IMP_ADMIN_STATUS = "غير مطابق ونزول بتعليمات اداريه";
+
+/* Column order = order of the entry form fields (and of the DB payload) */
+const RCV_IMP_COLS = [
+  { key:"shift",                  label:"الوردية",                    req:true,  w:12, aliases:[] },
+  { key:"receipt_date",           label:"التاريخ",                    req:true,  w:14, aliases:["تاريخ الاستلام"], fmt:"dd/mm/yyyy" },
+  { key:"material_code",          label:"كود الخامة",                 req:true,  w:14, aliases:[], fmt:"@" },
+  { key:"material_name",          label:"إسم الخامة",                 req:false, w:30, aliases:["اسم الخامة"] },
+  { key:"supplier_material_code", label:"كود الخامة (توريد)",         req:false, w:18, aliases:[], fmt:"@" },
+  { key:"supplier",               label:"المورد",                     req:true,  w:26, aliases:[] },
+  { key:"manufacturer",           label:"الشركة المصنعة",             req:false, w:26, aliases:[] },
+  { key:"origin",                 label:"المنشأ",                     req:false, w:14, aliases:[] },
+  { key:"quantity",               label:"الكمية",                     req:false, w:14, aliases:["الكمية (كجم)"] },
+  { key:"recipient",              label:"المستلم",                    req:false, w:18, aliases:[] },
+  { key:"analysis_certificates",  label:"شهادات تحليل",               req:false, w:14, aliases:[] },
+  { key:"customs_clearance",      label:"افراج جمركى",                req:false, w:14, aliases:["إفراج جمركى","افراج جمركي"] },
+  { key:"status",                 label:"الحالة",                     req:true,  w:20, aliases:[] },
+  { key:"decision",               label:"القرار",                     req:false, w:22, aliases:[] },
+  { key:"supplier_rating",        label:"تقييم المورد",               req:false, w:14, aliases:[] },
+  { key:"material_issues",        label:"مشاكل الخامة أثناء التصنيع", req:false, w:28, aliases:[] },
+  { key:"notes",                  label:"ملاحظات",                    req:false, w:30, aliases:[] },
+  { key:"prod_dates",             label:"تاريخ الإنتاج",              req:false, w:16, aliases:[], fmt:"dd/mm/yyyy" },
+  { key:"exp_dates",              label:"تاريخ الإنتهاء",             req:false, w:16, aliases:[], fmt:"dd/mm/yyyy" },
+  { key:"batch_nos",              label:"رقم التشغيلة",               req:false, w:16, aliases:["التشغيلة"], fmt:"@" }
+];
+
+let rcvImpState = null;      /* { fileName, rows:[...], dbChecked } */
+let rcvImpUploading = false;
+let rcvImpRefs = null;
+
+/* ---------- small helpers ---------- */
+function rcvImpNorm(s){
+  return String(s==null ? "" : s)
+    .replace(/[\u064B-\u065F\u0640]/g,"")
+    .replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/\s+/g," ").trim().toLowerCase();
+}
+function rcvImpDigits(s){
+  return String(s).replace(/[\u0660-\u0669]/g,c=>String(c.charCodeAt(0)-0x660))
+                  .replace(/[\u06F0-\u06F9]/g,c=>String(c.charCodeAt(0)-0x6F0));
+}
+function rcvImpCellVal(v){
+  if(v===null || v===undefined) return "";
+  if(v instanceof Date) return v;
+  if(typeof v==="object"){
+    if(Array.isArray(v.richText)) return v.richText.map(t=>t.text).join("");
+    if(v.result!==undefined) return rcvImpCellVal(v.result);
+    if(v.text!==undefined) return rcvImpCellVal(v.text);
+    return "";
+  }
+  return v;
+}
+function rcvImpText(v){
+  if(v instanceof Date) return rcvImpDispDate(v);
+  if(v===null || v===undefined) return "";
+  return String(v).replace(/\u00A0/g," ").trim();
+}
+function rcvImpDispDate(d){
+  const p = n=>String(n).padStart(2,"0");
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+}
+function rcvImpParseDate(v){
+  if(v==="" || v===null || v===undefined) return { empty:true };
+  let y,m,d;
+  if(v instanceof Date){ y=v.getUTCFullYear(); m=v.getUTCMonth()+1; d=v.getUTCDate(); }
+  else if(typeof v==="number"){
+    const dt = new Date(Math.round((v-25569)*86400000));
+    y=dt.getUTCFullYear(); m=dt.getUTCMonth()+1; d=dt.getUTCDate();
+  } else {
+    const s = rcvImpDigits(String(v)).trim();
+    let mm = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    if(mm){ d=+mm[1]; m=+mm[2]; y=+mm[3]; }
+    else {
+      mm = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+      if(mm){ y=+mm[1]; m=+mm[2]; d=+mm[3]; }
+      else return { bad:true };
+    }
+  }
+  const chk = new Date(Date.UTC(y,m-1,d));
+  if(chk.getUTCFullYear()!==y || chk.getUTCMonth()!==m-1 || chk.getUTCDate()!==d || y<2000 || y>2100) return { bad:true };
+  return { iso:`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}` };
+}
+function rcvImpEnum(val, list, label, errors, required){
+  if(!val){ if(required) errors.push(label+" مطلوب"); return null; }
+  const n = rcvImpNorm(val);
+  const hit = list.find(x=>rcvImpNorm(x)===n);
+  if(!hit){ errors.push(`${label} غير صحيح (${val})`); return null; }
+  return hit;
+}
+function rcvImpShift(val){
+  const n = rcvImpNorm(val);
+  if(n.startsWith("صباح")) return "الصباحية";
+  if(n.startsWith("مساء") || n.startsWith("مسائ")) return "المسائية";
+  return RCV_IMP_LISTS.shifts.find(x=>rcvImpNorm(x)===n) || null;
+}
+function rcvImpMkMap(arr){
+  const m = new Map();
+  (arr||[]).forEach(v=>{ if(v){ const k = rcvImpNorm(v); if(!m.has(k)) m.set(k, v); } });
+  return m;
+}
+async function rcvImpLoadRefs(){
+  await loadMaterialsCache();
+  let hit = await refCacheGet("rcv_lookups");
+  let map = hit && hit.value;
+  if(!map){
+    await refreshRcvDatalists(true);
+    hit = await refCacheGet("rcv_lookups");
+    map = hit && hit.value;
+  }
+  map = map || {};
+  await loadEngineersCache();
+  const byCode = new Map(), byName = new Map();
+  materialsCache.forEach(m=>{
+    byCode.set(rcvImpNorm(m.material_code), m);
+    const kn = rcvImpNorm(m.material_name);
+    if(!byName.has(kn)) byName.set(kn, m);
+  });
+  rcvImpRefs = {
+    supplier: rcvImpMkMap(map.supplier), manufacturer: rcvImpMkMap(map.manufacturer), origin: rcvImpMkMap(map.origin),
+    recipient: rcvImpMkMap(engineersCache.map(e=>e.name)),
+    byCode, byName
+  };
+}
+function rcvImpCanon(kind, val, warnings, label){
+  if(!val) return null;
+  const hit = rcvImpRefs[kind].get(rcvImpNorm(val));
+  if(hit) return hit;
+  warnings.push(`${label} "${val}" غير مسجل من قبل — راجع الإملاء`);
+  return val;
+}
+function rcvImpSplit(v){
+  if(v==="" || v===null || v===undefined) return [];
+  if(v instanceof Date || typeof v==="number") return [v];
+  return String(v).split(/[|\n\r؛;]/).map(s=>s.trim());
+}
+
+/* ---------- row validation (mirrors validateRcvEntry + QA checks) ---------- */
+function rcvImpValidateRow(raw){
+  const errors = [], warnings = [], e = {};
+  const T = k => rcvImpText(raw[k]);
+
+  /* shift */
+  const sh = T("shift");
+  if(!sh) errors.push("الوردية مطلوبة");
+  else { const c = rcvImpShift(sh); if(c) e.shift = c; else errors.push(`الوردية غير صحيحة (${sh})`); }
+
+  /* date */
+  const today = egyptTodayStr();
+  const dp = rcvImpParseDate(raw.receipt_date);
+  if(dp.empty) errors.push("التاريخ مطلوب");
+  else if(dp.bad) errors.push(`التاريخ غير صالح (${T("receipt_date")}) — الصيغة المطلوبة يوم/شهر/سنة`);
+  else if(dp.iso > today) errors.push("التاريخ مستقبلى — غير مسموح");
+  else e.receipt_date = dp.iso;
+
+  /* material */
+  const code = T("material_code"), name = T("material_name");
+  let mat = null;
+  if(!code && !name) errors.push("كود الخامة مطلوب");
+  else {
+    if(code) mat = rcvImpRefs.byCode.get(rcvImpNorm(code)) || resolveMaterialFromText(code);
+    else mat = rcvImpRefs.byName.get(rcvImpNorm(name)) || null;
+    if(!mat) errors.push(code ? `كود الخامة غير موجود فى قائمة الخامات (${code})` : `إسم الخامة غير موجود (${name})`);
+    else if(name && rcvImpNorm(name) !== rcvImpNorm(mat.material_name))
+      warnings.push(`الإسم بالملف يختلف عن المسجل (${mat.material_name}) — سيُعتمد المسجل`);
+  }
+  if(mat){ e.material_id = mat.id; e.material_code = mat.material_code; e.material_name = mat.material_name; }
+
+  /* supplier / manufacturer / origin / recipient / supplier code */
+  const sup = T("supplier");
+  if(!sup) errors.push("المورد مطلوب");
+  else e.supplier = rcvImpCanon("supplier", sup, warnings, "المورد");
+  e.manufacturer = rcvImpCanon("manufacturer", T("manufacturer"), warnings, "الشركة المصنعة");
+  e.origin       = rcvImpCanon("origin", T("origin"), warnings, "المنشأ");
+  e.recipient    = rcvImpCanon("recipient", T("recipient"), warnings, "المستلم");
+  e.supplier_material_code = T("supplier_material_code") || null;
+
+  /* quantity (free text in the form: "500" or "500 كيس") */
+  let q = rcvImpDigits(T("quantity"));
+  if(typeof raw.quantity === "number") q = String(raw.quantity);
+  if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(q)) q = q.replace(/,/g,"");
+  if(!q) warnings.push("الكمية فارغة");
+  else if(/^-?\d+(\.\d+)?$/.test(q)){
+    if(Number(q) <= 0) errors.push("الكمية يجب أن تكون أكبر من صفر");
+  } else warnings.push(`الكمية غير رقمية (${q}) — لن تدخل فى إجمالى الكميات`);
+  e.quantity = q || null;
+
+  /* enums */
+  e.analysis_certificates = rcvImpEnum(T("analysis_certificates"), RCV_IMP_LISTS.certs, "شهادات تحليل", errors, false);
+  e.customs_clearance     = rcvImpEnum(T("customs_clearance"), RCV_IMP_LISTS.certs, "افراج جمركى", errors, false);
+  e.status                = rcvImpEnum(T("status"), RCV_IMP_LISTS.statuses, "الحالة", errors, true);
+  e.decision              = rcvImpEnum(T("decision"), RCV_IMP_LISTS.decisions, "القرار", errors, false);
+  e.supplier_rating       = rcvImpEnum(T("supplier_rating"), RCV_IMP_LISTS.ratings, "تقييم المورد", errors, false);
+
+  e.material_issues = T("material_issues") || null;
+  e.notes = T("notes") || null;
+  if(e.status === RCV_IMP_ADMIN_STATUS && !e.notes) errors.push("الملاحظات إلزامية عند الحالة (غير مطابق ونزول بتعليمات اداريه)");
+
+  /* QA consistency checks (warnings only) */
+  if(e.status === "مطابق" && (e.decision === "ارتجاع للمورد" || e.decision === "عدم التحميل"))
+    warnings.push(`الحالة مطابق لكن القرار (${e.decision}) — تأكد من صحتها`);
+  if(e.status === "غير مطابق" && e.decision === "نزول بالمخازن")
+    warnings.push("الحالة غير مطابق لكن القرار نزول بالمخازن — تأكد من صحتها");
+
+  /* production batches */
+  const pL = rcvImpSplit(raw.prod_dates), eL = rcvImpSplit(raw.exp_dates), bL = rcvImpSplit(raw.batch_nos).map(rcvImpText);
+  const n = Math.max(pL.length, eL.length, bL.length);
+  const lines = [];
+  if(n > 0){
+    const lens = [pL.length, eL.length, bL.length].filter(x=>x>0);
+    if(lens.some(x=>x!==n)) errors.push("عدد (تواريخ الإنتاج / الإنتهاء / التشغيلات) غير متساوٍ — افصل بعلامة | وبنفس الترتيب");
+    else {
+      for(let i=0;i<n;i++){
+        const pp = rcvImpParseDate(pL[i] === undefined ? "" : pL[i]);
+        const ee = rcvImpParseDate(eL[i] === undefined ? "" : eL[i]);
+        const bn = bL[i] || "";
+        const tag = n>1 ? ` (تشغيلة ${i+1})` : "";
+        if(pp.bad){ errors.push("تاريخ الإنتاج غير صالح"+tag); continue; }
+        if(ee.bad){ errors.push("تاريخ الإنتهاء غير صالح"+tag); continue; }
+        if(pp.empty && ee.empty && !bn) continue;
+        if(pp.iso && ee.iso && ee.iso < pp.iso) errors.push("تاريخ الإنتهاء قبل تاريخ الإنتاج"+tag);
+        if(pp.iso && e.receipt_date && pp.iso > e.receipt_date) errors.push("تاريخ الإنتاج بعد تاريخ الاستلام"+tag);
+        if(ee.iso && e.receipt_date && ee.iso < e.receipt_date) warnings.push("تاريخ الانتهاء قبل تاريخ الاستلام — خامة منتهية الصلاحية"+tag);
+        lines.push({ production_date: pp.iso || "", expiry_date: ee.iso || "", batch_no: bn });
+      }
+    }
+  }
+  e.production_batches = lines;
+  return { entry:e, errors, warnings };
+}
+
+function rcvImpDupKey(e){
+  const b = (e.production_batches||[]).map(x=>rcvImpNorm(x.batch_no)).join(",");
+  return [String(e.receipt_date||"").slice(0,10), String(e.material_id), rcvImpNorm(e.supplier), rcvImpNorm(e.quantity), b].join("|");
+}
+
+/* ---------- parse the workbook ---------- */
+function rcvImpFindHeader(ws){
+  const lookup = new Map();
+  RCV_IMP_COLS.forEach(c=>{
+    lookup.set(rcvImpNorm(c.label), c.key);
+    (c.aliases||[]).forEach(a=>lookup.set(rcvImpNorm(a), c.key));
+  });
+  const maxScan = Math.min(10, ws.rowCount);
+  for(let r=1; r<=maxScan; r++){
+    const map = {};
+    ws.getRow(r).eachCell({includeEmpty:false}, (cell, col)=>{
+      const k = lookup.get(rcvImpNorm(rcvImpText(rcvImpCellVal(cell.value))));
+      if(k && !Object.values(map).includes(k)) map[col] = k;
+    });
+    if(Object.keys(map).length >= 4 && Object.values(map).includes("supplier")) return { row:r, map };
+  }
+  return null;
+}
+
+async function rcvImpHandleFile(file){
+  if(!file) return;
+  if(!/\.xlsx$/i.test(file.name)){ toast("الملف لازم يكون بصيغة .xlsx","error"); return; }
+  if(file.size > 60*1024*1024){ toast("حجم الملف كبير جداً (الحد الأقصى 60 ميجا)","error"); return; }
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    await rcvImpLoadRefs();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.getWorksheet("استلامات الخامات") || wb.worksheets[0];
+    if(!ws){ toast("الملف لا يحتوى على أى ورقة بيانات","error"); return; }
+    const hdr = rcvImpFindHeader(ws);
+    if(!hdr){ toast("لم يتم التعرف على صف العناوين — استخدم نموذج Excel المحمّل من الزرار","error"); return; }
+    const present = new Set(Object.values(hdr.map));
+    const missing = RCV_IMP_COLS.filter(c=>c.req && !present.has(c.key) && !(c.key==="material_code" && present.has("material_name"))).map(c=>c.label);
+    if(missing.length){ toast("أعمدة إلزامية ناقصة فى الملف: "+missing.join("، "),"error"); return; }
+
+    const rows = [];
+    const last = ws.rowCount;
+    for(let r=hdr.row+1; r<=last; r++){
+      const row = ws.getRow(r);
+      const raw = {};
+      let any = false;
+      Object.keys(hdr.map).forEach(col=>{
+        const v = rcvImpCellVal(row.getCell(+col).value);
+        raw[hdr.map[col]] = v;
+        if(rcvImpText(v) !== "") any = true;
+      });
+      if(!any) continue;
+      rows.push({ rowNo:r, raw });
+      if(rows.length > RCV_IMP_MAX_ROWS){ toast(`عدد الصفوف أكبر من الحد الأقصى (${RCV_IMP_MAX_ROWS}) — قسّم الملف`,"error"); return; }
+    }
+    if(!rows.length){ toast("لا توجد بيانات تحت صف العناوين","warning"); return; }
+
+    const checked = rows.map(r=>{
+      const v = rcvImpValidateRow(r.raw);
+      const disp = {};
+      RCV_IMP_COLS.forEach(c=>{ disp[c.key] = rcvImpText(r.raw[c.key]); });
+      return { rowNo:r.rowNo, disp, entry:v.entry, errors:v.errors, warnings:v.warnings, dup:null, uploaded:false };
+    });
+
+    /* duplicates inside the file */
+    const seen = new Map();
+    checked.forEach(r=>{
+      if(r.errors.length) return;
+      const k = rcvImpDupKey(r.entry);
+      if(seen.has(k)){ r.dup = "file"; r.warnings.push(`مكرر داخل الملف (نفس بيانات الصف ${seen.get(k)})`); }
+      else seen.set(k, r.rowNo);
+    });
+
+    /* duplicates against the database */
+    let dbChecked = true;
+    try{ await rcvImpCheckDbDuplicates(checked); }
+    catch(err){ dbChecked = false; console.error("rcvImpCheckDbDuplicates:", err); toast("تعذر فحص التكرار مع قاعدة البيانات — راجع البيانات يدوياً","warning"); }
+
+    rcvImpState = { fileName:file.name, rows:checked, dbChecked };
+    rcvImpShowStage(2);
+    document.getElementById("rcvImpFileName").textContent = "📄 " + file.name;
+    rcvImpRender();
+  }catch(err){
+    console.error("rcvImpHandleFile:", err);
+    toast("تعذر قراءة الملف: "+(err && err.message ? err.message : err),"error");
+  }finally{
+    showSpinner(false);
+    document.getElementById("rcvImpFile").value = "";
+  }
+}
+
+async function rcvImpCheckDbDuplicates(rows){
+  const cand = rows.filter(r=>!r.errors.length);
+  if(!cand.length) return;
+  const dates = cand.map(r=>r.entry.receipt_date).sort();
+  const ids = [...new Set(cand.map(r=>String(r.entry.material_id)))];
+  const existing = new Set();
+  for(let i=0;i<ids.length;i+=100){
+    const part = ids.slice(i,i+100);
+    let from = 0;
+    for(;;){
+      const { data, error } = await sb.from(RCV_TABLE)
+        .select("receipt_date,material_id,supplier,quantity,production_batches")
+        .gte("receipt_date", dates[0]).lte("receipt_date", dates[dates.length-1])
+        .in("material_id", part).range(from, from+999);
+      if(error) throw error;
+      (data||[]).forEach(d=>existing.add(rcvImpDupKey(d)));
+      if(!data || data.length < 1000) break;
+      from += 1000;
+    }
+  }
+  cand.forEach(r=>{
+    if(r.dup) return;
+    if(existing.has(rcvImpDupKey(r.entry))){ r.dup = "db"; r.warnings.push("موجود بالفعل فى قاعدة البيانات بنفس البيانات"); }
+  });
+}
+
+/* ---------- review screen ---------- */
+function rcvImpRowClass(r){
+  if(r.uploaded) return "done";
+  if(r.errors.length) return "err";
+  if(r.dup) return "dup";
+  if(r.warnings.length) return "warn";
+  return "ok";
+}
+function rcvImpWillUpload(r){
+  if(r.uploaded || r.errors.length) return false;
+  if(r.dup && document.getElementById("rcvImpSkipDup").checked) return false;
+  return true;
+}
+function rcvImpRender(){
+  if(!rcvImpState) return;
+  const rows = rcvImpState.rows;
+  const cnt = { err:0, warn:0, ok:0, dup:0 };
+  rows.forEach(r=>{
+    if(r.errors.length) cnt.err++;
+    else if(r.dup) cnt.dup++;
+    else if(r.warnings.length) cnt.warn++;
+    else cnt.ok++;
+  });
+  document.getElementById("rcvImpCTotal").textContent = rows.length;
+  document.getElementById("rcvImpCOk").textContent = cnt.ok;
+  document.getElementById("rcvImpCWarn").textContent = cnt.warn;
+  document.getElementById("rcvImpCErr").textContent = cnt.err;
+  document.getElementById("rcvImpCDup").textContent = cnt.dup;
+
+  const filter = document.getElementById("rcvImpFilter").value;
+  const pill = { ok:["ok","✅ سليم"], warn:["warn","⚠️ تحذير"], err:["err","❌ خطأ"], dup:["dup","♻️ مكرر"], done:["done","⬆️ تم الرفع"] };
+  const shown = rows.filter(r=>{
+    const c = rcvImpRowClass(r);
+    return filter==="all" || c===filter;
+  });
+  const capped = shown.length > RCV_IMP_RENDER_CAP;
+  const html = shown.slice(0, RCV_IMP_RENDER_CAP).map(r=>{
+    const c = rcvImpRowClass(r), d = r.disp;
+    const msgs = r.errors.map(m=>`<span class="rcvImp-e">✖ ${escapeHtml(m)}</span>`).concat(r.warnings.map(m=>`<span class="rcvImp-w">⚠ ${escapeHtml(m)}</span>`)).join("");
+    const nb = (r.entry.production_batches||[]).length;
+    return `<tr class="rcvImp-${c}">
+      <td>${r.rowNo}</td>
+      <td><span class="rcvImp-pill ${pill[c][0]}">${pill[c][1]}</span></td>
+      <td>${escapeHtml(d.shift)}</td><td>${escapeHtml(d.receipt_date)}</td>
+      <td>${escapeHtml(d.material_code)}</td><td>${escapeHtml(r.entry.material_name || d.material_name)}</td>
+      <td>${escapeHtml(d.supplier)}</td><td>${escapeHtml(d.quantity)}</td>
+      <td>${escapeHtml(d.status)}</td><td>${escapeHtml(d.decision)}</td>
+      <td>${nb || "—"}</td>
+      <td class="msg">${msgs || "—"}</td></tr>`;
+  }).join("");
+  const capNote = capped ? `<tr><td colspan="12" style="padding:10px;opacity:.8;">يتم عرض أول ${RCV_IMP_RENDER_CAP} صف من ${shown.length} — استخدم فلتر العرض أو تقرير الفحص لباقى الصفوف (الرفع يشمل كل الصفوف الصالحة)</td></tr>` : "";
+  document.getElementById("rcvImpTbody").innerHTML = (html ? html + capNote : "") || `<tr><td colspan="12" style="padding:18px;opacity:.7;">لا توجد صفوف مطابقة للعرض المحدد</td></tr>`;
+
+  const n = rows.filter(rcvImpWillUpload).length;
+  const btn = document.getElementById("btnRcvImpUpload");
+  btn.textContent = n ? `✅ رفع ${n} سجل` : "لا توجد سجلات صالحة للرفع";
+  btn.disabled = n===0 || rcvImpUploading;
+  btn.style.opacity = btn.disabled ? ".55" : "";
+}
+
+/* ---------- stages ---------- */
+function rcvImpShowStage(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById("rcvImpStage"+i).style.display = i===n ? "" : "none";
+    const st = document.getElementById("rcvImpStep"+i);
+    st.classList.toggle("active", i===n);
+    st.classList.toggle("done", i<n);
+  });
+}
+function rcvImpReset(){
+  rcvImpState = null;
+  document.getElementById("rcvImpFile").value = "";
+  document.getElementById("rcvImpFilter").value = "all";
+  document.getElementById("rcvImpSkipDup").checked = true;
+  rcvImpShowStage(1);
+}
+
+/* ---------- upload ---------- */
+async function rcvImpUpload(){
+  if(!rcvImpState || rcvImpUploading) return;
+  const rows = rcvImpState.rows;
+  const todo = rows.filter(rcvImpWillUpload);
+  if(!todo.length){ toast("لا توجد سجلات صالحة للرفع","warning"); return; }
+  const skipped = rows.filter(r=>!r.uploaded).length - todo.length;
+  const withWarn = todo.filter(r=>r.warnings.length).length;
+  let msg = `سيتم رفع ${todo.length} سجل إلى قاعدة البيانات.`;
+  if(skipped) msg += `\nسيتم تجاهل ${skipped} صف (به أخطاء أو مكرر).`;
+  if(withWarn) msg += `\nمنها ${withWarn} سجل به تحذيرات (راجعتها؟).`;
+  msg += "\n\nهل تريد المتابعة؟";
+  if(!confirm(msg)) return;
+
+  rcvImpUploading = true;
+  rcvImpShowStage(3);
+  document.getElementById("rcvImpResult").style.display = "none";
+  document.getElementById("rcvImpStage3Btns").style.display = "none";
+  document.getElementById("btnRcvImpRetry").style.display = "none";
+  const bar = document.getElementById("rcvImpBar"), txt = document.getElementById("rcvImpProgText");
+  bar.style.width = "0%";
+
+  const stamp = egyptTimestampStr();
+  const uid = myProfile ? myProfile.id : null, uname = myProfile ? myProfile.username : null;
+  let done = 0, failMsg = null;
+  for(let i=0; i<todo.length; i+=RCV_IMP_CHUNK){
+    const part = todo.slice(i, i+RCV_IMP_CHUNK);
+    const payload = part.map(r=>({
+      ...r.entry,
+      created_at: stamp, created_by: uid, created_by_name: uname,
+      updated_at: stamp, updated_by: uid, updated_by_name: uname
+    }));
+    txt.textContent = `جارى الرفع... ${done} / ${todo.length}`;
+    const { error } = await sb.from(RCV_TABLE).insert(payload);
+    if(error){ failMsg = error.message; break; }
+    part.forEach(r=>{ r.uploaded = true; });
+    done += part.length;
+    bar.style.width = Math.round(done/todo.length*100) + "%";
+  }
+  rcvImpUploading = false;
+
+  const res = document.getElementById("rcvImpResult");
+  res.style.display = "";
+  document.getElementById("rcvImpStage3Btns").style.display = "flex";
+  txt.textContent = "";
+  if(done > 0){
+    lastRcvFilterSignature = null;
+    refreshRcvDatalists(true);
+    loadMaterialIssuesFlags(true);
+  }
+  if(failMsg){
+    res.innerHTML = `<div class="big">⚠️</div><div>تم رفع <b>${done}</b> سجل من <b>${todo.length}</b></div>
+      <div style="color:#c62828;font-size:12.5px;">توقف الرفع بسبب خطأ: ${escapeHtml(failMsg)}</div>
+      <div style="font-size:12.5px;">السجلات التى رُفعت بالفعل لن تتكرر عند إعادة المحاولة.</div>`;
+    document.getElementById("btnRcvImpRetry").style.display = "";
+    toast("توقف الرفع: "+failMsg,"error");
+  } else {
+    res.innerHTML = `<div class="big">✅</div><div>تم رفع <b>${done}</b> سجل بنجاح</div>
+      ${skipped ? `<div style="font-size:12.5px;opacity:.8;">تم تجاهل ${skipped} صف (به أخطاء أو مكرر)</div>` : ""}`;
+    bar.style.width = "100%";
+    toast(`تم رفع ${done} سجل بنجاح`,"success");
+  }
+}
+
+/* ---------- template + report downloads ---------- */
+function rcvImpSaveBlob(buf, name){
+  const blob = new Blob([buf], {type:"application/octet-stream"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function rcvImpStyleHeader(ws, req){
+  const hr = ws.getRow(1);
+  hr.height = 30;
+  hr.eachCell((cell, col)=>{
+    const isReq = req ? req[col-1] : true;
+    cell.font = { bold:true, color:{argb:"FFFFFFFF"}, size:12, name:"Arial" };
+    cell.fill = { type:"pattern", pattern:"solid", fgColor:{argb: isReq ? "FFC0392B" : "FF5F6B76"} };
+    cell.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+    cell.border = { top:{style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"} };
+  });
+}
+async function rcvImpDownloadTemplate(){
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    await loadMaterialsCache();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "نظام إدارة المعمل";
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet("استلامات الخامات", { views:[{ rightToLeft:true, state:"frozen", ySplit:1 }] });
+    ws.columns = RCV_IMP_COLS.map(c=>({ header:c.label, key:c.key, width:c.w }));
+    rcvImpStyleHeader(ws, RCV_IMP_COLS.map(c=>c.req));
+
+    const ROWS = 300;
+    const dv = (col, list, title)=>{
+      for(let r=2; r<=ROWS+1; r++){
+        ws.getCell(r, col).dataValidation = {
+          type:"list", allowBlank:true, formulae:['"'+list.join(",")+'"'],
+          showErrorMessage:true, errorStyle:"warning", errorTitle:title, error:"اختر قيمة من القائمة"
+        };
+      }
+    };
+    const idx = k => RCV_IMP_COLS.findIndex(c=>c.key===k) + 1;
+    dv(idx("shift"), RCV_IMP_LISTS.shifts, "الوردية");
+    dv(idx("analysis_certificates"), RCV_IMP_LISTS.certs, "شهادات تحليل");
+    dv(idx("customs_clearance"), RCV_IMP_LISTS.certs, "افراج جمركى");
+    dv(idx("status"), RCV_IMP_LISTS.statuses, "الحالة");
+    dv(idx("decision"), RCV_IMP_LISTS.decisions, "القرار");
+    dv(idx("supplier_rating"), RCV_IMP_LISTS.ratings, "تقييم المورد");
+    RCV_IMP_COLS.forEach((c,i)=>{
+      const col = ws.getColumn(i+1);
+      col.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+      if(c.fmt) col.numFmt = c.fmt;
+    });
+    ws.getRow(1).alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+
+    /* instructions sheet */
+    const wi = wb.addWorksheet("تعليمات", { views:[{ rightToLeft:true }] });
+    wi.columns = [{ width:30 }, { width:90 }];
+    const lines = [
+      ["العمود","الشرح"],
+      ["الوردية (إلزامى)","الصباحية أو المسائية"],
+      ["التاريخ (إلزامى)","يوم/شهر/سنة — ممنوع تاريخ مستقبلى"],
+      ["كود الخامة (إلزامى)","كود الخامة كما هو مسجل فى (المجموعات والخامات) — راجع ورقة (الخامات)"],
+      ["إسم الخامة","اختيارى — يُعتمد الإسم المسجل للكود دائماً"],
+      ["كود الخامة (توريد)","كود المورد للخامة"],
+      ["المورد (إلزامى)","اسم المورد — يفضّل نفس الإسم المسجل سابقاً لتجنب التكرار"],
+      ["الكمية","رقم (مثل 500) أو نص (مثل 500 كيس)"],
+      ["شهادات تحليل / افراج جمركى","مرسل — لم يرسل — تم طلبه"],
+      ["الحالة (إلزامى)", RCV_IMP_LISTS.statuses.join(" — ")],
+      ["القرار", RCV_IMP_LISTS.decisions.join(" — ")],
+      ["تقييم المورد", RCV_IMP_LISTS.ratings.join(" — ")],
+      ["ملاحظات","إلزامية عند الحالة: غير مطابق ونزول بتعليمات اداريه"],
+      ["تاريخ الإنتاج / الإنتهاء / رقم التشغيلة","لو أكثر من تشغيلة افصل بعلامة | وبنفس الترتيب فى الأعمدة الثلاثة. مثال: 01/05/2026 | 10/05/2026"],
+      ["الألوان","عنوان أحمر = عمود إلزامى، عنوان رمادى = اختيارى"]
+    ];
+    lines.forEach((l,i)=>{
+      const row = wi.addRow(l);
+      row.alignment = { vertical:"middle", wrapText:true, horizontal:"right" };
+      if(i===0){ row.font = { bold:true, color:{argb:"FFFFFFFF"} }; row.eachCell(c=>{ c.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF5F6B76"} }; }); }
+      else row.getCell(1).font = { bold:true };
+    });
+
+    /* materials reference sheet */
+    const wm = wb.addWorksheet("الخامات", { views:[{ rightToLeft:true, state:"frozen", ySplit:1 }] });
+    wm.columns = [{ header:"كود الخامة", width:16 }, { header:"إسم الخامة", width:40 }, { header:"المجموعة", width:28 }];
+    rcvImpStyleHeader(wm, null);
+    materialsCache.forEach(m=>{
+      const r = wm.addRow([ String(m.material_code), m.material_name, m.group_name || "" ]);
+      r.alignment = { horizontal:"center", vertical:"middle" };
+      r.getCell(1).numFmt = "@";
+    });
+
+    rcvImpSaveBlob(await wb.xlsx.writeBuffer(), "نموذج_رفع_استلامات_الخامات.xlsx");
+  }catch(err){
+    toast("تعذر إنشاء النموذج: "+err.message,"error");
+  }finally{
+    showSpinner(false);
+  }
+}
+async function rcvImpDownloadReport(){
+  if(!rcvImpState) return;
+  showSpinner(true);
+  try{
+    await ensureExcelJs();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("تقرير الفحص", { views:[{ rightToLeft:true, state:"frozen", ySplit:1 }] });
+    ws.columns = [{ header:"صف Excel", width:10 }, { header:"النتيجة", width:14 }]
+      .concat(RCV_IMP_COLS.map(c=>({ header:c.label, width:c.w })))
+      .concat([{ header:"نتيجة الفحص", width:70 }]);
+    rcvImpStyleHeader(ws, null);
+    rcvImpState.rows.forEach(r=>{
+      const c = rcvImpRowClass(r);
+      const label = { ok:"سليم", warn:"تحذير", err:"خطأ", dup:"مكرر", done:"تم الرفع" }[c];
+      const notes = r.errors.map(m=>"✖ "+m).concat(r.warnings.map(m=>"⚠ "+m)).join("\n");
+      const row = ws.addRow([ r.rowNo, label ].concat(RCV_IMP_COLS.map(col=>r.disp[col.key])).concat([notes]));
+      row.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+      const fill = c==="err" ? "FFFBE3E3" : (c==="warn" ? "FFFFF3D6" : (c==="dup" ? "FFE9ECEF" : null));
+      if(fill) row.eachCell(cell=>{ cell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:fill} }; });
+    });
+    rcvImpSaveBlob(await wb.xlsx.writeBuffer(), "تقرير_فحص_رفع_الاستلامات.xlsx");
+  }catch(err){
+    toast("تعذر إنشاء التقرير: "+err.message,"error");
+  }finally{
+    showSpinner(false);
+  }
+}
+
+/* ---------- wiring ---------- */
+(function wireRcvImport(){
+  const modal = document.getElementById("rcvImpModal");
+  const drop = document.getElementById("rcvImpDrop");
+  const fileEl = document.getElementById("rcvImpFile");
+  document.getElementById("btnOpenRcvImport").addEventListener("click", async ()=>{
+    if(!rcvImpState) rcvImpReset();
+    modal.classList.add("open");
+    try{ await rcvImpLoadRefs(); }catch(e){}
+  });
+  document.getElementById("btnRcvImpClose").addEventListener("click", ()=>{
+    if(rcvImpUploading){ toast("انتظر حتى ينتهى الرفع","warning"); return; }
+    modal.classList.remove("open");
+  });
+  document.addEventListener("keydown", e=>{
+    if(e.key==="Escape" && rcvImpUploading && modal.classList.contains("open")) e.stopImmediatePropagation();
+  }, true);
+  document.getElementById("btnRcvImpTemplate").addEventListener("click", rcvImpDownloadTemplate);
+  drop.addEventListener("click", ()=>fileEl.click());
+  fileEl.addEventListener("change", ()=>rcvImpHandleFile(fileEl.files[0]));
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add("drag"); }));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove("drag"); }));
+  drop.addEventListener("drop", e=>{ const f = e.dataTransfer && e.dataTransfer.files[0]; if(f) rcvImpHandleFile(f); });
+  document.getElementById("rcvImpFilter").addEventListener("change", rcvImpRender);
+  document.getElementById("rcvImpSkipDup").addEventListener("change", rcvImpRender);
+  document.getElementById("btnRcvImpUpload").addEventListener("click", rcvImpUpload);
+  document.getElementById("btnRcvImpErrReport").addEventListener("click", rcvImpDownloadReport);
+  document.getElementById("btnRcvImpAnother").addEventListener("click", rcvImpReset);
+  document.getElementById("btnRcvImpNewFile").addEventListener("click", rcvImpReset);
+  document.getElementById("btnRcvImpBackReview").addEventListener("click", ()=>{ rcvImpShowStage(2); rcvImpRender(); });
+  document.getElementById("btnRcvImpRetry").addEventListener("click", rcvImpUpload);
+})();
+
 
 /* ===== Raw material searches & audits ===== */
 let rcvSearchResults = [];
@@ -10568,14 +11469,15 @@ document.getElementById("btnRcvExportExcel").addEventListener("click", async ()=
 
     const ws = wb.addWorksheet("استلامات الخامات", { views:[{ rightToLeft:true, state:"frozen", ySplit:1 }] });
     const headers = [
-      "الوردية","التاريخ","كود الخامة","إسم الخامة","كود الخامة (توريد)","المورد","الشركة المصنعة","المنشأ",
-      "الكمية (كجم)","شهادات تحليل","افراج جمركى","الحالة","القرار","تقييم المورد",
+      "م","الوردية","التاريخ","كود الخامة","إسم الخامة","كود الخامة (توريد)","المورد","الشركة المصنعة","المنشأ",
+      "الكمية","الوحدة","شهادات تحليل","افراج جمركى","الحالة","القرار","تقييم المورد",
       "مشاكل الخامة أثناء التصنيع","ملاحظات","المستلم","تواريخ الإنتاج/الإنتهاء/التشغيلة",
-      "أضيف بواسطة","تاريخ الإضافة","آخر تعديل بواسطة","تاريخ آخر تعديل"
+      "أضيف بواسطة","تاريخ الإضافة","آخر تعديل بواسطة","تاريخ آخر تعديل",
+      "الوحدة (مصنّفة)","طن","كيلو جرام","جرام","الإجمالي بالطن"
     ];
     ws.columns = headers.map(h=>({
       header:h,
-      width: (h==="ملاحظات" || h==="مشاكل الخامة أثناء التصنيع" || h==="تواريخ الإنتاج/الإنتهاء/التشغيلة") ? 30 : (h==="إسم الخامة"||h==="المورد"||h==="الشركة المصنعة") ? 22 : 15
+      width: h==="م" ? 6 : (h==="ملاحظات" || h==="مشاكل الخامة أثناء التصنيع" || h==="تواريخ الإنتاج/الإنتهاء/التشغيلة") ? 30 : (h==="الوحدة") ? 11 : (h==="إسم الخامة"||h==="المورد"||h==="الشركة المصنعة") ? 22 : 15
     }));
 
     const headerRow = ws.getRow(1);
@@ -10587,23 +11489,71 @@ document.getElementById("btnRcvExportExcel").addEventListener("click", async ()=
       cell.border = { top:{style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"} };
     });
 
-    let numericQtyTotal = 0;
+    // ===== أعمدة محسوبة بصيغ إكسيل حقيقية (تتغير مع الفلتر) =====
+    // قراءة الكمية: أرقام عربية/هندية، فاصلة الآلاف (1,500)، فاصلة عشرية (2,5)، ونص مصاحب (500 كيس)
+    const rcvxParseQty = (raw)=>{
+      if(raw==null) return null;
+      let t = String(raw).trim()
+        .replace(/[٠-٩]/g, d=>String(d.charCodeAt(0)-0x0660))
+        .replace(/[۰-۹]/g, d=>String(d.charCodeAt(0)-0x06F0))
+        .replace(/٬/g, ",").replace(/٫/g, ".");
+      const m = t.match(/-?\d[\d,]*(?:\.\d+)?|-?\.\d+/);
+      if(!m) return null;
+      let tok = m[0];
+      if(tok.includes(",")){
+        if(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(tok)) tok = tok.replace(/,/g,"");   // 1,500 => 1500
+        else tok = tok.replace(",", ".").replace(/,/g,"");                           // 2,5 => 2.5
+      }
+      const n = Number(tok);
+      return isNaN(n) ? null : n;
+    };
+    // تصنيف الوحدة (نفس ترتيب الصيغة): كيلو أولاً ثم طن ثم جرام، وأى شىء آخر = كيلو جرام
+    const rcvxClass = (u)=>{
+      const x = String(u==null||u===""?"كيلو جرام":u).toLowerCase();
+      if(["كيلو","كج","كغ","kg"].some(k=>x.includes(k))) return "كيلو جرام";
+      if(["طن","ton"].some(k=>x.includes(k))) return "طن";
+      if(["جرام","جم","غرام","غم","gm","gram"].some(k=>x.includes(k))) return "جرام";
+      return "كيلو جرام";
+    };
+    let sumXT = 0, sumXK = 0, sumXG = 0;
+    let numericQtyTotalTons = 0;   // الإجمالى بوحدة الطن (كيلو جرام ×0.001، جرام ×0.000001)
+    let m = 1;
+    const rcvTableRows = [];
     exportRows.forEach((r,i)=>{
       const batchesText = (r.production_batches||[]).map(b=>
         `تشغيلة ${b.batch_no||"-"} (إنتاج ${formatDateDisplay(b.production_date)||"-"} / إنتهاء ${formatDateDisplay(b.expiry_date)||"-"})`
       ).join(" | ");
       const qtyRaw = r.quantity;
-      const qtyIsNumeric = qtyRaw!==null && qtyRaw!==undefined && /^-?\d+(\.\d+)?$/.test(String(qtyRaw).trim());
-      const qtyCellValue = qtyIsNumeric ? Number(qtyRaw) : (qtyRaw||"");
-      if(qtyIsNumeric) numericQtyTotal += Number(qtyRaw);
+      const qtyStr = qtyRaw==null ? "" : String(qtyRaw).trim();
+      const qtyParsedX = rcvxParseQty(qtyStr);
+      const qtyCellValue = qtyParsedX!==null ? qtyParsedX : qtyStr;
+      const tons = rcvQtyToTons(qtyRaw, r.unit);
+      if(tons!==null) numericQtyTotalTons += tons;
 
-      const row = ws.addRow([
-        r.shift||"", formatDateDisplay(r.receipt_date), r.material_code||"", r.material_name||"",
+      const rowData = [
+        m++, r.shift||"", formatDateDisplay(r.receipt_date), r.material_code||"", r.material_name||"",
         r.supplier_material_code||"", r.supplier||"", r.manufacturer||"", r.origin||"",
-        qtyCellValue, r.analysis_certificates||"", r.customs_clearance||"", r.status||"", r.decision||"",
+        qtyCellValue, r.unit||"كيلو جرام", r.analysis_certificates||"", r.customs_clearance||"", r.status||"", r.decision||"",
         r.supplier_rating||"", r.material_issues||"", r.notes||"", r.recipient||"", batchesText,
-        r.created_by_name||"", r.created_at||"", r.updated_by_name||"", r.updated_at||""
-      ]);
+        r.created_by_name||"", r.created_at||"", r.updated_by_name||"", r.updated_at||"",
+        ...(()=>{
+          const xr = i + 2;
+          const S = k => `ISNUMBER(SEARCH("${k}",K${xr}))`;
+          const cls = rcvxClass(r.unit);
+          const q = (typeof qtyCellValue==="number") ? qtyCellValue : 0;
+          const vT = cls==="طن" ? q : 0, vK = cls==="كيلو جرام" ? q : 0, vG = cls==="جرام" ? q : 0;
+          sumXT += vT; sumXK += vK; sumXG += vG;
+          return [
+            { formula:`IF(OR(${S("كيلو")},${S("كج")},${S("كغ")},${S("kg")}),"كيلو جرام",IF(OR(${S("طن")},${S("ton")}),"طن",IF(OR(${S("جرام")},${S("جم")},${S("غرام")},${S("غم")},${S("gm")},${S("gram")}),"جرام","كيلو جرام")))`, result:cls },
+            { formula:`IF(AND(ISNUMBER(J${xr}),Y${xr}="طن"),J${xr},0)`, result:vT },
+            { formula:`IF(AND(ISNUMBER(J${xr}),Y${xr}="كيلو جرام"),J${xr},0)`, result:vK },
+            { formula:`IF(AND(ISNUMBER(J${xr}),Y${xr}="جرام"),J${xr},0)`, result:vG },
+            { formula:`Z${xr}+AA${xr}/1000+AB${xr}/1000000`, result: vT + vK/1000 + vG/1000000 }
+          ];
+        })()
+      ];
+      rcvTableRows.push(rowData);
+      const row = ws.addRow(rowData);
       row.eachCell(cell=>{
         cell.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
         cell.border = {
@@ -10614,21 +11564,42 @@ document.getElementById("btnRcvExportExcel").addEventListener("click", async ()=
         if(i % 2 === 1) cell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFF6F6F6"} };
       });
       if(hasMaterialIssue(r.material_name, r.supplier)){
-        const nameCell = row.getCell(4);
+        const nameCell = row.getCell(5);
         nameCell.font = { size:11, name:"Arial", bold:true, color:{argb:"FF7A0000"} };
       }
     });
 
-    const totalRow = ws.addRow(["","","","","","","","", Number(numericQtyTotal.toFixed(3)),
-      "","","","الإجمالى","","","","","","","","",""]);
+    // صف الإجمالى تحت الجدول مباشرة — SUBTOTAL(109) يحسب الصفوف الظاهرة فقط فيتغير مع الفلتر
+    const lastD = exportRows.length + 1;
+    const totTons = sumXT + sumXK/1000 + sumXG/1000000;
+    const totalFill = new Array(headers.length).fill("");
+    totalFill[9]  = { formula:`SUBTOTAL(109,AC2:AC${lastD})`, result:Number(totTons.toFixed(6)) };
+    totalFill[13] = "الإجمالى (طن)";
+    totalFill[24] = "الإجمالى";
+    totalFill[25] = { formula:`SUBTOTAL(109,Z2:Z${lastD})`,   result:Number(sumXT.toFixed(6)) };
+    totalFill[26] = { formula:`SUBTOTAL(109,AA2:AA${lastD})`, result:Number(sumXK.toFixed(6)) };
+    totalFill[27] = { formula:`SUBTOTAL(109,AB2:AB${lastD})`, result:Number(sumXG.toFixed(6)) };
+    totalFill[28] = { formula:`SUBTOTAL(109,AC2:AC${lastD})`, result:Number(totTons.toFixed(6)) };
+    const totalRow = ws.addRow(totalFill);
     totalRow.eachCell(cell=>{
       cell.font = { bold:true, size:11.5 };
       cell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFEFEFEF"} };
       cell.alignment = { horizontal:"center" };
       cell.border = { top:{style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"} };
     });
+    [10,26,27,28,29].forEach(c=>{ totalRow.getCell(c).numFmt = "#,##0.######"; });
+    for(let rr=2; rr<=lastD; rr++){ [26,27,28,29].forEach(c=>{ ws.getRow(rr).getCell(c).numFmt = "#,##0.######"; }); }
+    wb.calcProperties = { fullCalcOnLoad: true };   // إعادة حساب كل الصيغ عند فتح الملف
 
-    ws.autoFilter = "A1:" + colLetter(headers.length) + "1";
+    const rcvLastDataRow = exportRows.length + 1;
+    ws.addTable({
+      name: "MaterialReceipts",
+      ref: "A1:" + colLetter(headers.length) + rcvLastDataRow,
+      headerRow: true,
+      style: { theme: "TableStyleMedium2", showRowStripes: true },
+      columns: headers.map(h=>({ name:h })),
+      rows: rcvTableRows
+    });
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type:"application/octet-stream"});
@@ -10884,7 +11855,7 @@ document.getElementById("btnRcvPeriodReport").addEventListener("click", async ()
     const df = document.getElementById("s2_date_from").value || "-";
     const dt = document.getElementById("s2_date_to").value || "-";
     const totalCount = exportRows.length;
-    const totalQtySum = exportRows.reduce((s,rec)=>{ const n = Number(rec.quantity); return s + (isNaN(n)?0:n); }, 0);
+    const totalQtySum = exportRows.reduce((s,rec)=>{ const kg = rcvQtyToKg(rec.quantity, rec.unit); return s + (kg===null?0:kg); }, 0);
     const infoLabels = [["من تاريخ", df],["إلى تاريخ", dt],["عدد الإستلامات", totalCount]];
     let infoColCursor = 1;
     infoLabels.forEach(([lab,val], idx)=>{
@@ -11173,6 +12144,7 @@ async function openRcvEditModal(id){
   document.getElementById("e2_manufacturer").value = row.manufacturer || "";
   document.getElementById("e2_origin").value = row.origin || "";
   document.getElementById("e2_quantity").value = row.quantity ?? "";
+  document.getElementById("e2_unit").value = row.unit || "كيلو جرام";
   document.getElementById("e2_recipient").value = row.recipient || "";
   document.getElementById("e2_analysis_cert").value = row.analysis_certificates || "";
   document.getElementById("e2_customs").value = row.customs_clearance || "";
@@ -11308,6 +12280,7 @@ bindBusyClick("btnRcvSaveEdit", async ()=>{
     manufacturer: document.getElementById("e2_manufacturer").value.trim() || null,
     origin: document.getElementById("e2_origin").value.trim() || null,
     quantity: document.getElementById("e2_quantity").value.trim() || null,
+    unit: document.getElementById("e2_unit").value || "كيلو جرام",
     analysis_certificates: document.getElementById("e2_analysis_cert").value || null,
     customs_clearance: document.getElementById("e2_customs").value || null,
     status: document.getElementById("e2_status").value || null,
@@ -11323,7 +12296,7 @@ bindBusyClick("btnRcvSaveEdit", async ()=>{
   };
   if(!validateRcvEntry(entry, "e2")) return;
   showSpinner(true);
-  const { error } = await sb.from(RCV_TABLE).update(entry).eq("id", rcvEditingRowId);
+  const { error } = await updateRcvRow(rcvEditingRowId, entry);
   if(error){ showSpinner(false); toast("خطأ فى الحفظ: "+error.message,"error"); return; }
 
   if(e2PendingDeletions.length){
@@ -13922,9 +14895,32 @@ const EO_DAYS = ["الأحد","الإثنين","الثلاثاء","الأربع�
 let eoEmps = [];
 let eoOrders = [];
 let eoInited = false;
+const EO_PAGE_SIZE = 8;
+let eoPage = 1;
 
 function eoIso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function eoNorm(v){ return arbNormalizeDigits(String(v==null?"":v)).trim(); }
+/* ---------- بحث الموظف بالاسم ---------- */
+function eoFold(v){
+  return String(v==null?"":v).toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+    .replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/\s+/g," ").trim();
+}
+/* لو فى اسمين متشابهين بكودين مختلفين، بنضيف الكود بين قوسين للتمييز */
+function eoEmpLabel(e){
+  const dup = eoEmps.filter(x=>eoFold(x.name)===eoFold(e.name)).length > 1;
+  return dup ? `${e.name} (${e.code})` : String(e.name);
+}
+function eoEmpByLabel(label){
+  const f = eoFold(label); if(!f) return null;
+  return eoEmps.find(e=>eoFold(eoEmpLabel(e))===f) || null;
+}
+function eoFillNameList(){
+  const dl = document.getElementById("dl_eo_names"); if(!dl) return;
+  const labels = eoEmps.map(eoEmpLabel).sort((a,b)=>a.localeCompare(b,"ar"));
+  dl.innerHTML = labels.map(l=>`<option value="${escapeHtml(l)}"></option>`).join("");
+}
 function eoSetDay(){
   const v = document.getElementById("eo_date").value;
   document.getElementById("eo_day").value = v ? EO_DAYS[new Date(v+"T12:00:00").getDay()] : "";
@@ -13933,26 +14929,30 @@ async function eoLoadEmps(){
   const { data, error } = await sb.from(EO_EMP_TABLE).select("*").order("code");
   if(error){ console.error("eo emps load", error); toast("تعذر تحميل الموظفين — تأكد من تشغيل SQL الخاص بالجداول","error"); eoEmps = []; return; }
   eoEmps = data || [];
-  eoFillCodeSelects();
+  eoFillNameList();
 }
-function eoLookup(){
-  const c = eoNorm(document.getElementById("eo_code").value);
-  const e = eoEmps.find(x=>String(x.code)===c);
-  document.getElementById("eo_name").value = e ? e.name : "";
+function eoLookup(showHint){
+  const nm = document.getElementById("eo_name").value.trim();
+  const e = eoEmpByLabel(nm);
+  document.getElementById("eo_code").value = e ? String(e.code) : "";
   document.getElementById("eo_job").value = e ? (e.job_title||"") : "";
   const h = document.getElementById("eo_hint");
-  h.textContent = !c ? "" : (e ? "✔ تم العثور على الموظف" : "✖ الكود غير مسجل — استخدم زر إضافة الموظفين");
-  h.style.color = e ? "#1e8449" : "#c0392b";
+  if(e){ h.textContent = "✔ تم العثور على الموظف"; h.style.color = "#1e8449"; }
+  else if(showHint===true && nm){ h.textContent = "✖ الاسم غير مسجل — اختر من القائمة أو استخدم زر إضافة الموظفين"; h.style.color = "#c0392b"; }
+  else h.textContent = "";
 }
 function eoLikeEsc(v){ return v.replace(/[\\%_]/g, m=>"\\"+m); }
-async function eoLoadOrders(){
+async function eoLoadOrders(keepPage){
+  if(keepPage!==true) eoPage = 1;
   const g = id=>document.getElementById(id).value;
   const from = g("eoF_from"), to = g("eoF_to");
   if(from && to && from > to){ toast("تاريخ (من) أكبر من تاريخ (إلى)","warning"); return; }
   let q = sb.from(EO_TABLE).select("*").order("order_date",{ascending:false}).order("created_at",{ascending:false}).limit(1000);
   if(from) q = q.gte("order_date", from);
   if(to) q = q.lte("order_date", to);
-  const code = eoNorm(g("eoF_code")), name = g("eoF_name").trim();
+  const code = eoNorm(g("eoF_code"));
+  const nameEmp = eoEmpByLabel(g("eoF_name"));
+  const name = nameEmp ? String(nameEmp.name).trim() : g("eoF_name").trim();
   if(code) q = q.ilike("emp_code", "%"+eoLikeEsc(code)+"%");
   if(name) q = q.ilike("emp_name", "%"+eoLikeEsc(name)+"%");
   if(g("eoF_shift")) q = q.eq("shift", g("eoF_shift"));
@@ -13969,10 +14969,18 @@ function eoClearFilters(){
   eoLoadOrders();
 }
 function eoRenderOrders(){
-  document.getElementById("eoCount").textContent = eoOrders.length;
-  document.getElementById("eoOrdersBody").innerHTML = eoOrders.length===0
+  const total = eoOrders.length;
+  const pages = Math.max(1, Math.ceil(total / EO_PAGE_SIZE));
+  if(eoPage > pages) eoPage = pages;
+  if(eoPage < 1) eoPage = 1;
+  const pageRows = eoOrders.slice((eoPage-1)*EO_PAGE_SIZE, eoPage*EO_PAGE_SIZE);
+  document.getElementById("eoCount").textContent = total;
+  document.getElementById("eoPageInfo").textContent = `صفحة ${eoPage} من ${pages}`;
+  document.getElementById("eoPagePrev").disabled = eoPage <= 1;
+  document.getElementById("eoPageNext").disabled = eoPage >= pages;
+  document.getElementById("eoOrdersBody").innerHTML = total===0
     ? `<tr><td colspan="11" style="text-align:center;opacity:.7;">لا توجد أوامر مسجلة</td></tr>`
-    : eoOrders.map(o=>`<tr>
+    : pageRows.map(o=>`<tr>
         <td>${escapeHtml(o.order_date||"")}</td><td>${escapeHtml(o.day_name||"")}</td><td>${escapeHtml(o.shift||"")}</td>
         <td>${escapeHtml(o.emp_code||"")}</td><td class="name-col">${escapeHtml(o.emp_name||"")}</td><td class="name-col">${escapeHtml(o.job_title||"")}</td>
         <td>${escapeHtml(o.order_type||"")}</td><td class="name-col">${escapeHtml(o.work_desc||"")}</td>
@@ -13992,8 +15000,7 @@ function eoRenderEmps(){
         </td></tr>`).join("");
 }
 async function eoSaveOrder(){
-  const code = eoNorm(document.getElementById("eo_code").value);
-  const emp = eoEmps.find(x=>String(x.code)===code);
+  const emp = eoEmpByLabel(document.getElementById("eo_name").value);
   const date = document.getElementById("eo_date").value;
   const work = document.getElementById("eo_work").value.trim();
   const shift = document.getElementById("eo_shift").value;
@@ -14001,7 +15008,7 @@ async function eoSaveOrder(){
   const missing = [];
   if(!shift) missing.push("الوردية");
   if(!date) missing.push("التاريخ");
-  if(!emp) missing.push("كود الموظف");
+  if(!emp) missing.push("اسم الموظف (اختاره من القائمة)");
   if(!type) missing.push("نوع أمر التكليف");
   if(!work) missing.push("العمل المكلف به");
   if(missing.length){ toast("لا يمكن الحفظ — أكمل: "+missing.join("، "),"warning"); return; }
@@ -14012,16 +15019,16 @@ async function eoSaveOrder(){
     created_by: (myProfile && myProfile.username) || ""
   });
   if(error){ console.error("eo save", error); toast("تعذر الحفظ: "+(error.message||""),"error"); return; }
-  document.getElementById("eo_shift").selectedIndex = -1; document.getElementById("eo_code").selectedIndex = -1; document.getElementById("eo_type").selectedIndex = -1; document.getElementById("eo_work").value = "";
+  document.getElementById("eo_shift").selectedIndex = -1; document.getElementById("eo_name").value = ""; document.getElementById("eo_type").selectedIndex = -1; document.getElementById("eo_work").value = "";
   eoLookup(); toast("تم حفظ أمر التكليف","success");
   await eoLoadOrders();
-  document.getElementById("eo_code").focus();
+  document.getElementById("eo_name").focus();
 }
 window.eoDeleteOrder = async function(id){
   if(!confirm("هل تريد حذف هذا الأمر؟")) return;
   const { error } = await sb.from(EO_TABLE).delete().eq("id", id);
   if(error){ toast("تعذر الحذف","error"); return; }
-  toast("تم الحذف","success"); await eoLoadOrders();
+  toast("تم الحذف","success"); await eoLoadOrders(true);
 };
 async function eoAddEmp(){
   const code = eoNorm(document.getElementById("eoE_code").value);
@@ -14058,14 +15065,15 @@ function eoUSetDay(){
   const v = document.getElementById("eoU_date").value;
   document.getElementById("eoU_day").value = v ? EO_DAYS[new Date(v+"T12:00:00").getDay()] : "";
 }
-function eoULookup(){
-  const c = eoNorm(document.getElementById("eoU_code").value);
-  const e = eoEmps.find(x=>String(x.code)===c);
-  document.getElementById("eoU_name").value = e ? e.name : "";
+function eoULookup(showHint){
+  const nm = document.getElementById("eoU_name").value.trim();
+  const e = eoEmpByLabel(nm);
+  document.getElementById("eoU_code").value = e ? String(e.code) : "";
   document.getElementById("eoU_job").value = e ? (e.job_title||"") : "";
   const h = document.getElementById("eoU_hint");
-  h.textContent = !c ? "" : (e ? "✔ تم العثور على الموظف" : "✖ الكود غير مسجل");
-  h.style.color = e ? "#1e8449" : "#c0392b";
+  if(e){ h.textContent = "✔ تم العثور على الموظف"; h.style.color = "#1e8449"; }
+  else if(showHint===true && nm){ h.textContent = "✖ الاسم غير مسجل — اختر من القائمة"; h.style.color = "#c0392b"; }
+  else h.textContent = "";
 }
 window.eoEditOrder = async function(id){
   const o = eoOrders.find(x=>x.id===id); if(!o) return;
@@ -14073,24 +15081,28 @@ window.eoEditOrder = async function(id){
   eoEditingId = id;
   document.getElementById("eoU_shift").value = o.shift;
   document.getElementById("eoU_date").value = o.order_date;
-  eoFillCodeSelects(o.emp_code);
-  document.getElementById("eoU_code").value = o.emp_code;
+  eoFillNameList();
+  const eoCur = eoEmps.find(x=>String(x.code)===String(o.emp_code));
+  document.getElementById("eoU_name").value = eoCur ? eoEmpLabel(eoCur) : (o.emp_name || "");
   document.getElementById("eoU_type").value = o.order_type;
   document.getElementById("eoU_work").value = o.work_desc || "";
   eoUSetDay();
   eoULookup();
   /* لو الموظف اتحذف من القائمة بعد تسجيل الأمر، نعرض البيانات المحفوظة فى الأمر */
-  if(!document.getElementById("eoU_name").value){
-    document.getElementById("eoU_name").value = o.emp_name || "";
+  if(!document.getElementById("eoU_code").value){
+    document.getElementById("eoU_code").value = o.emp_code || "";
     document.getElementById("eoU_job").value = o.job_title || "";
   }
   document.getElementById("eoEditModal").classList.add("open");
 };
 async function eoSaveEdit(){
   if(!eoEditingId) return;
-  const code = eoNorm(document.getElementById("eoU_code").value);
-  const emp = eoEmps.find(x=>String(x.code)===code);
+  const nameTxt = document.getElementById("eoU_name").value;
+  const emp = eoEmpByLabel(nameTxt);
   const old = eoOrders.find(x=>x.id===eoEditingId);
+  /* لو الموظف اتحذف من القائمة بعد تسجيل الأمر، نسمح بالإبقاء على بياناته المحفوظة كما هى */
+  const keepOld = !emp && old && eoFold(nameTxt)===eoFold(old.emp_name);
+  const code = emp ? String(emp.code) : (keepOld ? String(old.emp_code||"") : "");
   const date = document.getElementById("eoU_date").value;
   const work = document.getElementById("eoU_work").value.trim();
   const shift = document.getElementById("eoU_shift").value;
@@ -14098,7 +15110,7 @@ async function eoSaveEdit(){
   const missing = [];
   if(!shift) missing.push("الوردية");
   if(!date) missing.push("التاريخ");
-  if(!emp && !(old && String(old.emp_code)===code)) missing.push("كود الموظف");
+  if(!emp && !keepOld) missing.push("اسم الموظف (اختاره من القائمة)");
   if(!type) missing.push("نوع أمر التكليف");
   if(!work) missing.push("العمل المكلف به");
   if(missing.length){ toast("لا يمكن الحفظ — أكمل: "+missing.join("، "),"warning"); return; }
@@ -14111,24 +15123,7 @@ async function eoSaveEdit(){
   document.getElementById("eoEditModal").classList.remove("open");
   eoEditingId = null;
   toast("تم تعديل أمر التكليف","success");
-  await eoLoadOrders();
-}
-
-
-/* ---------- employee codes dropdown (no blank option) ---------- */
-function eoFillCodeSelects(extra){
-  const codes = eoEmps.map(e=>String(e.code)).sort((x,y)=>x.localeCompare(y,"en",{numeric:true}));
-  ["eo_code","eoU_code"].forEach(id=>{
-    const sel = document.getElementById(id); if(!sel) return;
-    const keep = sel.value;
-    let list = codes.slice();
-    if(id==="eoU_code" && extra && !list.includes(String(extra))) list.push(String(extra));
-    sel.innerHTML = list.length
-      ? list.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")
-      : `<option value="" disabled selected>أضف موظفين أولاً</option>`;
-    if(list.includes(keep)) sel.value = keep;
-    else if(id==="eo_code" && list.length) sel.selectedIndex = -1;
-  });
+  await eoLoadOrders(true);
 }
 
 
@@ -14175,7 +15170,11 @@ async function initExtraOrdersPage(){
     document.getElementById("eo_type").selectedIndex = -1;
     document.getElementById("eo_shift").selectedIndex = -1;
     document.getElementById("eo_date").addEventListener("input", eoSetDay);
-    document.getElementById("eo_code").addEventListener("change", eoLookup);
+    ["eo_name","eoU_name","eoF_name"].forEach(enhanceSearchableSelect);
+    document.getElementById("eo_name").addEventListener("change", ()=>eoLookup(true));
+    document.getElementById("eo_name").addEventListener("input", ()=>eoLookup(false));
+    document.getElementById("eoPagePrev").addEventListener("click", ()=>{ if(eoPage>1){ eoPage--; eoRenderOrders(); } });
+    document.getElementById("eoPageNext").addEventListener("click", ()=>{ eoPage++; eoRenderOrders(); });
     document.getElementById("btnEoSave").addEventListener("click", eoSaveOrder);
     document.getElementById("eoF_shift").selectedIndex = -1;
     document.getElementById("eoF_type").selectedIndex = -1;
@@ -14184,7 +15183,8 @@ async function initExtraOrdersPage(){
     ["eoF_code","eoF_name"].forEach(i=>document.getElementById(i).addEventListener("keydown", e=>{ if(e.key==="Enter") eoLoadOrders(); }));
     document.getElementById("btnEoExport").addEventListener("click", eoExportExcel);
     document.getElementById("eoU_date").addEventListener("input", eoUSetDay);
-    document.getElementById("eoU_code").addEventListener("change", eoULookup);
+    document.getElementById("eoU_name").addEventListener("change", ()=>eoULookup(true));
+    document.getElementById("eoU_name").addEventListener("input", ()=>eoULookup(false));
     document.getElementById("btnEoEditSave").addEventListener("click", eoSaveEdit);
     document.getElementById("btnEoEditCancel").addEventListener("click", ()=>{ eoEditingId = null; document.getElementById("eoEditModal").classList.remove("open"); });
     document.getElementById("btnEoOpenEmps").addEventListener("click", async ()=>{
