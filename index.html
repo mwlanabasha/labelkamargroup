@@ -1109,6 +1109,21 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 <meta name="apple-mobile-web-app-title" content="إدارة المعمل">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+/* ===== COMBOBOX (قوائم قابلة للبحث) ===== */
+.cb-native{position:absolute !important;left:0;top:0;width:1px !important;height:1px !important;min-height:0 !important;opacity:0 !important;pointer-events:none !important;margin:0 !important;padding:0 !important;border:0 !important;}
+.cb-wrap .cb-input{box-sizing:border-box;width:100%;cursor:pointer;padding-left:26px !important;
+  border:1px solid var(--border-thin);border-radius:5px;padding-top:8px;padding-bottom:8px;padding-right:10px;font-family:'Cairo';font-size:13px;background-color:#fff;color:#111;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat:no-repeat;background-position:left 9px center;}
+[data-theme="dark"] .cb-wrap .cb-input{background-color:#111;color:#eee;}
+.cb-wrap .cb-input:disabled{opacity:.6;cursor:not-allowed;}
+.cb-wrap .cb-input::placeholder{opacity:.45;}
+.cb-input[data-reject="1"],input[data-reject="1"]{border-color:#d33 !important;box-shadow:0 0 0 2px rgba(221,51,51,.25);}
+.smart-select-list.cb-up{top:auto;bottom:calc(100% + 3px);}
+.smart-select-opt.cb-selected{font-weight:700;background:rgba(128,128,128,.16);}
+.smart-select-opt.cb-disabled{opacity:.45;cursor:not-allowed;}
+</style>
 </head>
 <body>
 <div id="spinner-overlay"><div class="spinner"></div></div>
@@ -4868,6 +4883,7 @@ function enhanceSearchableSelect(inputId){
   const listId = input.getAttribute("list");
   if(!listId) return;
   input.dataset.smartWired = "1";
+  input.dataset.dlId = listId;
 
   const wrap = document.createElement("div");
   wrap.className = "smart-select-wrap";
@@ -15200,6 +15216,215 @@ async function initExtraOrdersPage(){
   await eoLoadEmps(); eoLookup();
   await eoLoadOrders();
 }
+</script>
+<script>
+/* ===== COMBOBOX: كل القوائم المنسدلة = كتابة للبحث + اختيار من القائمة فقط ===== */
+(function(){
+  if(window.__comboInit) return; window.__comboInit = true;
+
+  /* حقول (الكتابة + datalist) التي يجب أن تكون القيمة فيها من القائمة فقط (قوائم رئيسية ثابتة).
+     الحقول المبنية من السجلات السابقة (اسم المنتج، مسئول التسليم، القسم، المورد، الشركة المصنعة، المنشأ...)
+     تبقى حرة لأنها لا يوجد لها شاشة لإضافة قيم جديدة. لجعل أي حقل منها مقيّداً أضف الـ id هنا. */
+  const STRICT_LIST_INPUTS = ["eo_name","eoU_name","f2_material_search","f2_recipient"];
+
+  const fold = t => String(t==null?"":t).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+    .replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/\s+/g," ").trim();
+  const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const nVal = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value");
+  const nIdx = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"selectedIndex");
+  const label = o => (o.textContent||"").trim();
+  const isPh  = o => o.hidden || (o.disabled && o.value==="");
+  let curOpen = null;
+
+  document.addEventListener("mousedown", e=>{
+    if(curOpen && !curOpen.wrap.contains(e.target)) curOpen.close();
+  }, true);
+
+  function enhance(sel){
+    if(sel.__cb || sel.multiple || sel.size>1 || sel.hasAttribute("data-no-combo")) return;
+    if(!sel.parentNode || !sel.isConnected) return;
+    sel.__cb = true;
+
+    const wrap = document.createElement("div");
+    wrap.className = "smart-select-wrap cb-wrap";
+    const st = sel.style;
+    ["flex","width","minWidth","maxWidth","flexShrink","flexGrow","flexBasis","margin","marginTop","marginBottom","gridColumn"]
+      .forEach(p=>{ if(st[p]) wrap.style[p] = st[p]; });
+
+    const input = document.createElement("input");
+    input.type = "text"; input.autocomplete = "off"; input.spellcheck = false;
+    input.setAttribute("role","combobox");
+    input.placeholder = "اكتب للبحث أو اختر";
+    if(st.padding) input.style.padding = st.padding;
+    if(st.fontSize) input.style.fontSize = st.fontSize;
+
+    const list = document.createElement("div");
+    list.className = "smart-select-list";
+
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(input); wrap.appendChild(list); wrap.appendChild(sel);
+    sel.classList.add("cb-native"); sel.tabIndex = -1; sel.setAttribute("aria-hidden","true");
+
+    let cur = [], active = -1;
+    const api = { wrap, close };
+
+    function shownText(){
+      const o = sel.options[nIdx.get.call(sel)];
+      if(!o || isPh(o)) return "";
+      return label(o);
+    }
+    function sync(){
+      if(input.dataset.typing !== "1") input.value = shownText();
+      input.disabled = sel.disabled;
+      input.title = sel.title || "";
+      input.className = "cb-input " + Array.from(sel.classList).filter(c=>c!=="cb-native" && c!=="direction-select").join(" ");
+      wrap.style.display = (sel.style.display==="none" || sel.hidden) ? "none" : "";
+    }
+    function items(){
+      return Array.from(sel.options).map((o,i)=>({o,i,t:label(o)})).filter(x=>x.t && !isPh(x.o));
+    }
+    function render(q){
+      const toks = fold(q).split(" ").filter(Boolean);
+      cur = items().filter(x=>!toks.length || toks.every(t=>fold(x.t).includes(t)));
+      const si = nIdx.get.call(sel);
+      active = -1;
+      if(!toks.length) active = cur.findIndex(x=>x.i===si);
+      list.innerHTML = cur.length
+        ? cur.slice(0,300).map((x,k)=>`<div class="smart-select-opt${x.o.disabled?" cb-disabled":""}${x.i===si?" cb-selected":""}" data-k="${k}">${esc(x.t)}</div>`).join("")
+        : `<div class="smart-select-empty">لا توجد نتائج مطابقة</div>`;
+      paint(active>=0);
+    }
+    function paint(scroll){
+      list.querySelectorAll(".smart-select-opt").forEach((el,k)=>{
+        el.classList.toggle("active-opt", k===active);
+        if(k===active && scroll) el.scrollIntoView({block:"nearest"});
+      });
+    }
+    function position(){
+      const r = input.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom, above = r.top;
+      const up = below < 200 && above > below;
+      list.classList.toggle("cb-up", up);
+      list.style.maxHeight = Math.max(120, Math.min(260, (up?above:below) - 12)) + "px";
+    }
+    function open(all){
+      if(sel.disabled) return;
+      if(curOpen && curOpen!==api) curOpen.close();
+      render(all ? "" : input.value);
+      list.classList.add("open"); position(); curOpen = api;
+    }
+    function close(){
+      list.classList.remove("open"); active = -1;
+      if(curOpen===api) curOpen = null;
+    }
+    function setIdx(i){
+      const changed = nIdx.get.call(sel) !== i;
+      nIdx.set.call(sel, i);
+      input.dataset.typing = "0";
+      sync(); close();
+      if(changed){
+        sel.dispatchEvent(new Event("input",{bubbles:true}));
+        sel.dispatchEvent(new Event("change",{bubbles:true}));
+      }
+    }
+    function reject(){
+      input.dataset.reject = "1";
+      setTimeout(()=>{ delete input.dataset.reject; }, 700);
+    }
+    function commit(){
+      const typed = input.value.trim();
+      input.dataset.typing = "0";
+      close();
+      if(typed === ""){
+        const ei = Array.from(sel.options).findIndex(o=>o.value==="");
+        if(ei>=0 && ei!==nIdx.get.call(sel)) setIdx(ei); else sync();
+        return;
+      }
+      const hit = items().find(x=>!x.o.disabled && fold(x.t)===fold(typed));
+      if(hit) setIdx(hit.i);
+      else { if(typed !== shownText()) reject(); sync(); }
+    }
+
+    input.addEventListener("focus", ()=>{ input.dataset.typing="0"; input.select(); open(true); });
+    input.addEventListener("click", ()=>{ if(!list.classList.contains("open")) open(true); });
+    input.addEventListener("input", ()=>{ input.dataset.typing="1"; open(false); });
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", e=>{
+      const isOpen = list.classList.contains("open");
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+        e.preventDefault();
+        if(!isOpen){ open(input.dataset.typing!=="1"); return; }
+        const n = cur.length; if(!n) return;
+        active = e.key==="ArrowDown" ? Math.min(active+1,n-1) : Math.max(active-1,0);
+        paint(true);
+      } else if(e.key==="Enter"){
+        if(!isOpen) return;
+        e.preventDefault(); e.stopPropagation(); /* لا تُفعّل زر الإضافة/البحث العام أثناء الاختيار */
+        if(active>=0 && cur[active] && !cur[active].o.disabled) setIdx(cur[active].i);
+        else if(cur.length===1 && !cur[0].o.disabled) setIdx(cur[0].i);
+        else commit();
+      } else if(e.key==="Tab"){
+        if(isOpen && input.dataset.typing==="1" && cur.length===1 && !cur[0].o.disabled) setIdx(cur[0].i);
+      } else if(e.key==="Escape"){
+        input.dataset.typing="0"; sync(); close();
+      }
+    });
+    list.addEventListener("mousedown", e=>{
+      const el = e.target.closest(".smart-select-opt"); if(!el) return;
+      e.preventDefault();
+      const x = cur[parseInt(el.dataset.k,10)];
+      if(x && !x.o.disabled) setIdx(x.i);
+    });
+
+    /* مزامنة أي تغيير برمجي على القائمة الأصلية (.value / selectedIndex / تعبئة الخيارات) */
+    Object.defineProperty(sel,"value",{configurable:true,get(){return nVal.get.call(this);},set(v){nVal.set.call(this,v);sync();}});
+    Object.defineProperty(sel,"selectedIndex",{configurable:true,get(){return nIdx.get.call(this);},set(v){nIdx.set.call(this,v);sync();}});
+    sel.focus = o => input.focus(o);
+    sel.addEventListener("change", sync);
+    new MutationObserver(()=>{ sync(); if(list.classList.contains("open") && input.dataset.typing!=="1") render(""); })
+      .observe(sel,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["class","disabled","style","hidden","title","selected"]});
+    sync();
+  }
+
+  /* حقول الكتابة المرتبطة بـ datalist: لا تقبل إلا قيمة من القائمة */
+  function wireStrict(input){
+    if(!input || input.__strict) return; input.__strict = true;
+    let atFocus = input.value;
+    input.addEventListener("focus", ()=>{ atFocus = input.value; });
+    input.addEventListener("blur", ()=>{
+      const v = input.value.trim();
+      if(!v || v===atFocus) return;
+      const dl = document.getElementById(input.dataset.dlId || input.getAttribute("list") || "");
+      const vals = dl ? Array.from(dl.options).map(o=>o.value).filter(Boolean) : [];
+      if(!vals.length) return;
+      const hit = vals.find(x=>fold(x)===fold(v));
+      const fire = ()=>{ input.dispatchEvent(new Event("input",{bubbles:true})); input.dispatchEvent(new Event("change",{bubbles:true})); };
+      if(hit){ if(hit!==input.value){ input.value = hit; fire(); } return; }
+      input.value = ""; fire();
+      input.dataset.reject = "1"; setTimeout(()=>{ delete input.dataset.reject; }, 700);
+    });
+  }
+  const wireStrictAll = ()=>STRICT_LIST_INPUTS.forEach(id=>wireStrict(document.getElementById(id)));
+
+  function scan(n){
+    if(n.nodeType!==1) return;
+    if(n.tagName==="SELECT") enhance(n);
+    else if(n.querySelectorAll) n.querySelectorAll("select").forEach(enhance);
+  }
+  const pending = new Set(); let sched = false;
+  new MutationObserver(ms=>{
+    for(const m of ms) m.addedNodes.forEach(n=>pending.add(n));
+    if(sched) return; sched = true;
+    requestAnimationFrame(()=>{
+      sched = false;
+      const arr = Array.from(pending); pending.clear();
+      arr.forEach(scan); wireStrictAll();
+    });
+  }).observe(document.body,{childList:true,subtree:true});
+
+  document.querySelectorAll("select").forEach(enhance);
+  wireStrictAll();
+})();
 </script>
 </body>
 </html>
