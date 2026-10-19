@@ -451,6 +451,14 @@ input,textarea,select,button,option,label,th,td,span,div,p,a{font-weight:700;}
 .nav-item:hover{background:#2b2f33;border-color:#666;transform:translateX(-2px);}
 .nav-item.active{background:var(--sidebar-active);border-color:var(--sidebar-active);}
 .nav-item .ic{font-size:16px;width:20px;text-align:center;}
+#sidebar .brand{cursor:pointer;user-select:none;-webkit-user-select:none;transition:opacity .15s;}
+#sidebar .brand:hover{opacity:.8;}
+#sidebar .brand::after{content:"»";display:inline-block;margin-right:8px;font-size:13px;opacity:.7;transition:transform .2s ease;}
+#brandReopen{display:none;align-items:center;gap:6px;}
+@media (min-width:861px){
+  #app.side-hidden #sidebar{display:none;}
+  #app.side-hidden #brandReopen{display:inline-flex;}
+}
 
 /* ===== SIDEBAR BACKDROP (mobile) ===== */
 #sidebarBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:49;display:none;}
@@ -1123,6 +1131,66 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 .smart-select-list.cb-up{top:auto;bottom:calc(100% + 3px);}
 .smart-select-opt.cb-selected{font-weight:700;background:rgba(128,128,128,.16);}
 .smart-select-opt.cb-disabled{opacity:.45;cursor:not-allowed;}
+
+[data-theme="dark"] input[type="date"]{color-scheme:dark;}
+/* ===== PROFILE BUTTON + DROPDOWN + AVATARS ===== */
+.avatar{display:inline-flex;width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#555;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;}
+.avatar svg{width:100%;height:100%;display:block;}
+.avatar.lg{width:64px;height:64px;font-size:26px;box-shadow:0 0 0 3px var(--bg-panel),0 0 0 5px var(--accent-pink);}
+.profile-wrap{position:relative;}
+.profile-btn{display:flex;align-items:center;gap:8px;background:var(--btn-black);color:#fff;border:1px solid transparent;border-radius:999px;padding:4px 12px 4px 6px;cursor:pointer;font-family:'Cairo';font-size:13px;font-weight:700;}
+.profile-btn:hover,.profile-btn[aria-expanded="true"]{background:var(--btn-black-hover);border-color:var(--accent-pink);}
+.profile-btn .chev{font-size:11px;opacity:.8;transition:transform .2s ease;}
+.profile-btn[aria-expanded="true"] .chev{transform:rotate(180deg);}
+.profile-menu{position:absolute;top:calc(100% + 8px);left:0;min-width:250px;background:var(--bg-panel);border:1px solid var(--border-thin);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35);padding:8px;z-index:7000;display:none;transform-origin:top left;}
+.profile-menu.open{display:block;animation:pmIn .14s ease-out;}
+@keyframes pmIn{from{opacity:0;transform:translateY(-6px) scale(.97);}to{opacity:1;transform:none;}}
+.pm-head{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px 12px;border-bottom:1px solid var(--border-thin);margin-bottom:6px;text-align:center;}
+#profileMenu #currentUserBadge{display:block !important;font-size:13.5px;font-weight:800;margin:0;color:var(--text-main);}
+.pm-item{display:flex;align-items:center;gap:10px;width:100%;background:transparent;color:var(--text-main);border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-family:'Cairo';font-size:13.5px;font-weight:700;text-align:right;}
+.pm-item:hover{background:var(--grid-header);}
+.pm-item.danger{color:#fff;background:var(--danger);margin-top:6px;justify-content:center;}
+.pm-item.danger:hover{background:#a5301f;}
+.av-picker{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:6px;}
+.av-opt{padding:2px;border-radius:50%;border:2px solid transparent;background:transparent;cursor:pointer;line-height:0;}
+.av-opt .avatar{width:100%;height:auto;aspect-ratio:1/1;}
+.av-opt:hover{transform:scale(1.08);}
+.av-opt.sel{border-color:var(--accent-pink);box-shadow:0 0 0 2px rgba(214,51,132,.25);}
+.av-rand{margin-top:8px;width:100%;}
+@media (max-width:520px){ .profile-btn .profile-name{display:none;} .profile-btn{padding:4px 8px 4px 4px;} .av-picker{grid-template-columns:repeat(4,1fr);} }
+
+/* ===== مسافات أصغر بين الحقول: فورم محاضر العزل والإعدام + حالات عدم المطابقة ===== */
+#page-disposal .panel,#page-nonconformity .panel,#editModal .panel,#ncEditModal .panel{padding:10px 12px;margin-bottom:8px;}
+#page-disposal .panel-title,#page-nonconformity .panel-title{margin-bottom:6px;padding-bottom:5px;}
+#page-disposal .field-grid,#page-nonconformity .field-grid,#editModal .field-grid,#ncEditModal .field-grid{gap:6px 10px;}
+#page-disposal .field,#page-nonconformity .field,#editModal .field,#ncEditModal .field{gap:2px;}
+#page-disposal .field label,#page-nonconformity .field label,#editModal .field label,#ncEditModal .field label{font-size:12px;margin-bottom:0;}
+#page-disposal .btn-row,#page-nonconformity .btn-row,#editModal .btn-row,#ncEditModal .btn-row{margin:8px 0;}
+@media (min-width:861px){
+  #page-disposal .field input,#page-disposal .field select,#page-disposal .field textarea,
+  #page-nonconformity .field input,#page-nonconformity .field select,#page-nonconformity .field textarea,
+  #editModal .field input,#editModal .field select,#editModal .field textarea,
+  #ncEditModal .field input,#ncEditModal .field select,#ncEditModal .field textarea{padding:6px 8px;font-size:12.5px;}
+}
+
+/* ===== حجم الخط 12 فى بحث تحكيم العينات ===== */
+#arbSearchPage table,#arbSearchPage table th,#arbSearchPage table td,#arbSearchPage table button{font-size:12px !important;}
+#arbSearchPage .field label,#arbSearchPage .row label,#arbSearchPage .btn,#arbSearchPage .panel-title,#arbSearchPage #arbSearchPageInfo{font-size:12px;}
+@media (min-width:861px){ #arbSearchPage .field input,#arbSearchPage .field select,#arbSearchPage .field textarea{font-size:12px;} }
+
+/* ===== مسافات أصغر: المستخدمون وصلاحياتهم ===== */
+#page-users .panel{padding:10px 12px;margin-bottom:8px;}
+#page-users .panel + .panel{margin-top:8px !important;}
+#page-users .panel-title{margin-bottom:6px;padding-bottom:5px;}
+#page-users .panel > p{margin:4px 0 6px;line-height:1.5;}
+#page-users .btn-row{margin:6px 0;gap:6px;}
+#page-users tbody td,#page-users thead th{padding:4px 8px;}
+#page-users tbody td .btn{padding:4px 10px !important;font-size:12px;}
+#page-users tbody td select{padding:3px 6px;}
+#permissionsModal .modal-title{margin-bottom:8px;padding-bottom:6px;}
+#permissionsModal #permCheckboxList label{padding:4px 6px;border-radius:6px;}
+#permissionsModal #permCheckboxList label:hover{background:var(--grid-header);}
+#permissionsModal .btn-row{margin:8px 0 0;}
 </style>
 </head>
 <body>
@@ -1154,7 +1222,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
 
   <div id="sidebarBackdrop"></div>
   <nav id="sidebar">
-    <div class="brand">إدارة المعمل</div>
+    <div class="brand" id="brandToggle" title="اضغط لإخفاء/إظهار القائمة">إدارة المعمل</div>
     <div class="nav-item active" data-page="dashboard"><span class="ic">🏠</span> الرئيسية</div>
     <div class="nav-item" data-page="receiving"><span class="ic">📥</span> تسجيل استلامات الخامات</div>
     <div class="nav-item" data-page="disposal"><span class="ic">📋</span> تسجيل محاضر العزل والإعدام</div>
@@ -1172,13 +1240,27 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
     <div id="topbar">
       <div style="display:flex;align-items:center;gap:10px;">
         <button class="icon-btn" id="hamburgerBtn" title="القائمة" aria-label="فتح/إغلاق القائمة الجانبية">☰</button>
+        <button class="icon-btn" id="brandReopen" type="button" title="إظهار القائمة">☰ إدارة المعمل</button>
         <h1 id="page-title">الرئيسية</h1>
       </div>
       <div class="tools">
-        <span id="currentUserBadge" style="font-size:12.5px;font-weight:700;margin-left:8px;"></span>
-        <button class="icon-btn" id="themeToggle">🌙 الوضع الليلى</button>
-        <button class="icon-btn" id="changePasswordBtn">🔑 تغيير كلمة السر</button>
-        <button class="icon-btn" id="logoutBtn" style="background:var(--danger);">🚪 خروج</button>
+        <div class="profile-wrap" id="profileWrap">
+          <button class="profile-btn" id="profileBtn" type="button" aria-haspopup="true" aria-expanded="false" title="الملف الشخصى">
+            <span class="avatar" id="profileAvatar"></span>
+            <span class="profile-name" id="profileName"></span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="profile-menu" id="profileMenu" role="menu">
+            <div class="pm-head">
+              <span class="avatar lg" id="profileAvatarLg"></span>
+              <span id="currentUserBadge"></span>
+            </div>
+            <button class="pm-item" id="themeToggle" type="button" role="menuitem">🌙 الوضع الليلى</button>
+            <button class="pm-item" id="changeAvatarBtn" type="button" role="menuitem">🖼️ تغيير الصورة الشخصية</button>
+            <button class="pm-item" id="changePasswordBtn" type="button" role="menuitem">🔑 تغيير كلمة السر</button>
+            <button class="pm-item danger" id="logoutBtn" type="button" role="menuitem">🚪 خروج</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1855,7 +1937,7 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
             </div>
             <div class="table-wrap" style="margin-top:10px;">
               <table id="arbSearchTable">
-                <thead id="arbSearchTableHead"><tr><th>م</th><th>تاريخ التحكيم</th><th>إسم المنتج / العينات</th><th>مسئول التحكيم</th><th>القسم</th><th>إسم المُحكَم</th><th>الوظيفة</th><th>الشكل العام</th><th>الطعم</th><th>اللون</th><th>الرائحة</th><th>ملاحظات</th></tr></thead>
+                <thead id="arbSearchTableHead"><tr><th>تاريخ التحكيم</th><th>إسم المنتج / العينات</th><th>مسئول التحكيم</th><th>القسم</th><th>ملاحظات</th></tr></thead>
                 <tbody id="arbSearchTableBody"></tbody>
               </table>
             </div>
@@ -2688,6 +2770,21 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   </div>
 </div>
 
+<!-- change avatar -->
+<div id="changeAvatarModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:400px; width:96%;">
+    <span class="modal-x-close" data-close-target="btnAvClose" title="إغلاق">✕</span>
+    <div class="modal-title">تغيير الصورة الشخصية</div>
+    <div class="av-picker" id="editAvatarPicker"></div>
+    <button type="button" class="btn ghost av-rand" id="editAvatarRandom">🎲 صورة عشوائية</button>
+    <div id="avMsg" style="font-size:12.5px;color:var(--accent-pink);min-height:18px;margin-top:6px;"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="btnAvSave" style="flex:1;">حفظ</button>
+      <button class="btn ghost" id="btnAvClose" style="flex:1;">إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <!-- change own password -->
 <div id="changePasswordModal" class="modal-overlay">
   <div class="modal-box" style="max-width:420px; width:96%;">
@@ -2719,6 +2816,11 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
         <span style="font-size:11px;opacity:.75;">حروف إنجليزية صغيرة/أرقام/شرطة سفلية فقط، بدون مسافات (3-20 حرف)</span>
       </div>
       <div class="field"><label>كلمة المرور</label><input id="reg_password" type="password" placeholder="••••••••" autocomplete="new-password"></div>
+      <div class="field">
+        <label>الصورة الشخصية</label>
+        <div class="av-picker" id="regAvatarPicker"></div>
+        <button type="button" class="btn ghost av-rand" id="regAvatarRandom">🎲 صورة عشوائية</button>
+      </div>
     </div>
     <div id="regMsg" style="font-size:12.5px;color:var(--accent-pink);min-height:18px;margin-top:6px;"></div>
     <div class="btn-row">
@@ -3032,11 +3134,11 @@ body.atp-force-print #page-atp tbody td{ padding:6px 4px !important; white-space
   <div class="modal-box" style="max-width:480px;">
     <span class="modal-x-close" data-close-target="btnCancelPermissions" title="إغلاق">✕</span>
     <div class="modal-title">صلاحيات الوصول للصفحات — <span id="permUserLabel"></span></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+    <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
       <button type="button" class="btn info" id="btnPermSelectAll" style="padding:6px 14px;">✔ تحديد الكل</button>
       <button type="button" class="btn ghost" id="btnPermDeselectAll" style="padding:6px 14px;">✖ إلغاء تحديد الكل</button>
     </div>
-    <div id="permCheckboxList" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div id="permCheckboxList" style="display:flex;flex-direction:column;gap:2px;"></div>
     <div class="btn-row">
       <button class="btn primary" id="btnSavePermissions">حفظ الصلاحيات</button>
       <button class="btn ghost" id="btnCancelPermissions">إلغاء</button>
@@ -3505,6 +3607,7 @@ async function enterApp(){
   myPagePermissions = myProfile.page_permissions || {};
   const roleLabel = { admin:"مدير النظام", supervisor:"مشرف", user:"مستخدم" }[myRole] || myRole;
   document.getElementById("currentUserBadge").textContent = `${myProfile.username} (${roleLabel})`;
+  renderProfileUI(); loadMyAvatar();
   applyRolePermissions();
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
@@ -3713,6 +3816,133 @@ bindBusyClick("btnLogin", async ()=>{
   await enterApp();
 });
 
+
+
+/* ===== الضغط على "إدارة المعمل" يخفى القائمة الجانبية كلها ويوسّع الشاشة؛ زرار فى الشريط العلوى يرجّعها ===== */
+(function(){
+  const app = document.getElementById("app");
+  const set = (hidden)=>{
+    app.classList.toggle("side-hidden", hidden);
+    try{ localStorage.setItem("sidebarHidden", hidden ? "1" : "0"); }catch(e){}
+  };
+  document.getElementById("brandToggle").addEventListener("click", ()=>set(true));
+  document.getElementById("brandReopen").addEventListener("click", ()=>set(false));
+  try{ if(localStorage.getItem("sidebarHidden")==="1") app.classList.add("side-hidden"); }catch(e){}
+})();
+
+/* =========================================================
+   AVATARS + PROFILE DROPDOWN
+   الصورة بتتخزن كمعرّف قصير (a0..a11) فى بيانات حساب Supabase (user_metadata)
+   فمش محتاج أى تعديل فى قاعدة البيانات. الرسم SVG داخلى بدون إنترنت.
+========================================================= */
+const AVATAR_COUNT = 12;
+const AV_BG    = ["#e57373","#64b5f6","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#7986cb","#a1887f","#4dd0e1","#aed581","#ff8a65"];
+const AV_SKIN  = ["#f5d0b0","#e0ac84","#c68642","#8d5524","#f1c27d","#ffdbac"];
+const AV_HAIR  = ["#2b2118","#5a3825","#111111","#a0522d","#7b7b7b","#d4a017"];
+const AV_SHIRT = ["#37474f","#1565c0","#2e7d32","#6a1b9a","#c62828","#00838f"];
+function avatarIdValid(id){ return /^a\d{1,2}$/.test(id||"") && parseInt(id.slice(1),10) < AVATAR_COUNT; }
+function randomAvatarId(){ return "a" + Math.floor(Math.random()*AVATAR_COUNT); }
+function avatarSvg(id){
+  const n = parseInt(String(id).slice(1),10) || 0;
+  const bg=AV_BG[n%AV_BG.length], skin=AV_SKIN[(n*5+1)%AV_SKIN.length], hair=AV_HAIR[(n*7+2)%AV_HAIR.length], shirt=AV_SHIRT[(n*3+1)%AV_SHIRT.length];
+  const style = n % 3;
+  let hairBack = "", hairFront = "";
+  if(style===0){ hairFront = `<path d="M32 40 C32 22 68 22 68 40 C62 32 38 32 32 40Z" fill="${hair}"/>`; }
+  else if(style===1){ hairBack = `<path d="M30 44 C28 18 72 18 70 44 L72 66 L28 66Z" fill="${hair}"/>`; hairFront = `<path d="M33 40 C34 26 66 26 67 40 C58 33 42 33 33 40Z" fill="${hair}"/>`; }
+  else { hairFront = `<path d="M33 41 C32 24 66 22 67 40 C56 34 44 36 33 41Z" fill="${hair}"/><circle cx="50" cy="22" r="7" fill="${hair}"/>`; }
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<rect width="100" height="100" fill="${bg}"/>
+<circle cx="50" cy="108" r="46" fill="rgba(255,255,255,.18)"/>
+${hairBack}
+<path d="M16 100 C16 74 32 66 50 66 C68 66 84 74 84 100Z" fill="${shirt}"/>
+<rect x="44" y="56" width="12" height="13" rx="5" fill="${skin}"/>
+<circle cx="50" cy="45" r="17" fill="${skin}"/>
+${hairFront}
+<circle cx="43.5" cy="46" r="1.9" fill="#222"/><circle cx="56.5" cy="46" r="1.9" fill="#222"/>
+<path d="M44 53 Q50 58 56 53" stroke="#222" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+</svg>`;
+}
+function renderAvatarInto(el, id, username){
+  if(!el) return;
+  if(avatarIdValid(id)){ el.innerHTML = avatarSvg(id); el.style.background = ""; return; }
+  const u = (username||"?").trim();
+  el.textContent = (u[0]||"?").toUpperCase();
+  let h = 0; for(let i=0;i<u.length;i++) h = (h*31 + u.charCodeAt(i)) >>> 0;
+  el.style.background = AV_BG[h % AV_BG.length];
+}
+function buildAvatarPicker(pickerId, randomBtnId, getSel, setSel){
+  const box = document.getElementById(pickerId);
+  const paint = ()=>{
+    box.innerHTML = "";
+    for(let i=0;i<AVATAR_COUNT;i++){
+      const id = "a"+i;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "av-opt" + (getSel()===id ? " sel" : "");
+      b.setAttribute("aria-label","صورة "+(i+1));
+      b.innerHTML = `<span class="avatar">${avatarSvg(id)}</span>`;
+      b.addEventListener("click", ()=>{ setSel(id); paint(); });
+      box.appendChild(b);
+    }
+  };
+  document.getElementById(randomBtnId).onclick = ()=>{ setSel(randomAvatarId()); paint(); };
+  paint();
+  return paint;
+}
+
+/* --- اختيار الصورة أثناء تسجيل حساب جديد --- */
+let __regAvatar = randomAvatarId();
+const __paintRegAvatars = buildAvatarPicker("regAvatarPicker","regAvatarRandom", ()=>__regAvatar, v=>{ __regAvatar = v; });
+document.getElementById("btnRegister").addEventListener("click", ()=>{ __regAvatar = randomAvatarId(); __paintRegAvatars(); });
+
+/* --- زرار البروفايل والقائمة المنسدلة --- */
+let myAvatarId = null;
+function renderProfileUI(){
+  const uname = (myProfile && myProfile.username) || "";
+  renderAvatarInto(document.getElementById("profileAvatar"), myAvatarId, uname);
+  renderAvatarInto(document.getElementById("profileAvatarLg"), myAvatarId, uname);
+  document.getElementById("profileName").textContent = uname;
+}
+async function loadMyAvatar(){
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const meta = (session && session.user && session.user.user_metadata) || {};
+    myAvatarId = avatarIdValid(meta.avatar) ? meta.avatar : (myProfile && avatarIdValid(myProfile.avatar) ? myProfile.avatar : null);
+  }catch(e){ myAvatarId = null; }
+  renderProfileUI();
+}
+const __pBtn = document.getElementById("profileBtn"), __pMenu = document.getElementById("profileMenu");
+function closeProfileMenu(){ __pMenu.classList.remove("open"); __pBtn.setAttribute("aria-expanded","false"); }
+__pBtn.addEventListener("click", (e)=>{
+  e.stopPropagation();
+  const open = !__pMenu.classList.contains("open");
+  __pMenu.classList.toggle("open", open);
+  __pBtn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+document.addEventListener("click", (e)=>{ if(!document.getElementById("profileWrap").contains(e.target)) closeProfileMenu(); });
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeProfileMenu(); });
+/* أى عنصر فى القائمة (غير الوضع الليلى) يقفلها بعد الضغط */
+["changeAvatarBtn","changePasswordBtn","logoutBtn"].forEach(id=>document.getElementById(id).addEventListener("click", closeProfileMenu));
+
+/* --- تغيير الصورة بعد تسجيل الدخول --- */
+let __editAvatar = null;
+const __paintEditAvatars = buildAvatarPicker("editAvatarPicker","editAvatarRandom", ()=>__editAvatar, v=>{ __editAvatar = v; });
+document.getElementById("changeAvatarBtn").addEventListener("click", ()=>{
+  __editAvatar = myAvatarId;
+  document.getElementById("avMsg").textContent = "";
+  __paintEditAvatars();
+  document.getElementById("changeAvatarModal").classList.add("open");
+});
+document.getElementById("btnAvClose").addEventListener("click", ()=>document.getElementById("changeAvatarModal").classList.remove("open"));
+bindBusyClick("btnAvSave", async ()=>{
+  const msg = document.getElementById("avMsg"); msg.style.color = "var(--accent-pink)";
+  if(!avatarIdValid(__editAvatar)){ msg.textContent = "اختار صورة الأول"; return; }
+  const { error } = await sb.auth.updateUser({ data:{ avatar: __editAvatar } });
+  if(error){ msg.textContent = "تعذّر حفظ الصورة: " + error.message; return; }
+  myAvatarId = __editAvatar; renderProfileUI();
+  document.getElementById("changeAvatarModal").classList.remove("open");
+  toast("تم تحديث الصورة الشخصية","success");
+});
+
 /* زرار "تسجيل حساب جديد" فى شاشة الدخول يفتح نافذة التسجيل؛ منطق التسجيل
    وتفعيل الحساب بواسطة مدير النظام زى ما هو بدون أى تغيير. */
 function openRegisterModal(){
@@ -3746,7 +3976,7 @@ bindBusyClick("btnRegSubmit", async ()=>{
   const { data, error } = await sb.auth.signUp({
     email: usernameToEmail(username),
     password,
-    options: { data: { username } }
+    options: { data: { username, avatar: avatarIdValid(__regAvatar) ? __regAvatar : randomAvatarId() } }
   });
   showSpinner(false);
   if(error){
@@ -4120,8 +4350,10 @@ async function loadUsersPage(){
   const { data, error } = await sb.from("profiles").select("id,username,full_name,role,is_active,created_at,page_permissions").order("created_at",{ascending:true});
   showSpinner(false);
   if(error){ toast("خطأ فى تحميل المستخدمين: "+error.message,"error"); return; }
-  usersCache = data;
-  document.getElementById("usersTableBody").innerHTML = data.map(u=>{
+  /* المدير الرئيسى (admin1) لا يظهر لأى مستخدم آخر — يظهر لنفسه فقط */
+  const visibleUsers = (data||[]).filter(u => u.username !== PRIMARY_ADMIN_USERNAME || (myProfile && myProfile.username === PRIMARY_ADMIN_USERNAME));
+  usersCache = visibleUsers;
+  document.getElementById("usersTableBody").innerHTML = visibleUsers.map(u=>{
     const locked = isPrimaryAdmin(u) || u.id===myProfile.id;
     const lockedTitle = isPrimaryAdmin(u) ? `title="${PRIMARY_ADMIN_USERNAME} هو المدير الرئيسى للنظام ولا يمكن تعديله"` : "";
     return `
@@ -8390,6 +8622,24 @@ document.getElementById("arbTabSearch").addEventListener("click", ()=>arbShowSub
    Sensory and preferential each get their own independent modal (overlay,
    slot, close button, and open flag) so the two edit flows never share
    any state or UI element. */
+/* ---------- كشف التغيير فى نماذج التعديل ----------
+   لقطة (snapshot) من كل الحقول + حالة المُحكَمين/العينات وقت فتح التعديل، ورسالة
+   "سيتم إلغاء أى تعديلات غير محفوظة" تظهر فقط لو الحالة الحالية مختلفة عن اللقطة. */
+let arbSEditSnapshot = null, arbPEditSnapshot = null;
+function arbFormStateString(pageId, extra){
+  const page = document.getElementById(pageId);
+  if(!page) return "";
+  const ctl = [...page.querySelectorAll("input,select,textarea")].map((e,i)=>{
+    const v = (e.type==="checkbox"||e.type==="radio") ? (e.checked?"1":"0") : (e.type==="file" ? String(e.files ? e.files.length : 0) : e.value);
+    return (e.id || ("#"+i)) + "=" + v;
+  }).join("\n");
+  return ctl + "\n" + JSON.stringify(extra);
+}
+function arbSStateNow(){ return arbFormStateString("arbSensoryPage", arbSOpinions); }
+function arbPStateNow(){ return arbFormStateString("arbPrefPage", [arbPSamples, arbPOpinions]); }
+function arbSEditIsDirty(){ return arbSEditSnapshot === null ? true : arbSStateNow() !== arbSEditSnapshot; }
+function arbPEditIsDirty(){ return arbPEditSnapshot === null ? true : arbPStateNow() !== arbPEditSnapshot; }
+
 let arbSEditModalOpen = false;
 let arbPEditModalOpen = false;
 
@@ -8411,9 +8661,10 @@ function closeArbSensoryEditModal(){
   arbSSetStage("idle");
 }
 document.getElementById("btnArbSEditModalClose").addEventListener("click", ()=>{
-  if(arbSOpinions.length>0 || document.getElementById("arbS_product_name").value.trim()){
+  if(arbSEditIsDirty()){
     if(!confirm("سيتم إلغاء أى تعديلات غير محفوظة، هل تريد الإغلاق؟")) return;
   }
+  arbSEditSnapshot = null;
   closeArbSensoryEditModal();
 });
 document.getElementById("arbSEditModalOverlay").addEventListener("click", (e)=>{
@@ -8437,9 +8688,10 @@ function closeArbPrefEditModal(){
   document.getElementById("arbPEditModalOverlay").classList.remove("open");
 }
 document.getElementById("btnArbPEditModalClose").addEventListener("click", ()=>{
-  if(arbPOpinions.length>0 || Array.from(document.querySelectorAll(".arbP-sample-input")).some(inp=>inp.value.trim())){
+  if(arbPEditIsDirty()){
     if(!confirm("سيتم إلغاء أى تعديلات غير محفوظة، هل تريد الإغلاق؟")) return;
   }
+  arbPEditSnapshot = null;
   closeArbPrefEditModal();
 });
 document.getElementById("arbPEditModalOverlay").addEventListener("click", (e)=>{
@@ -8554,6 +8806,7 @@ document.getElementById("btnArbSOpinionAdd").addEventListener("click", ()=>{
 let arbSLastExportData = null;
 let arbSCurrentSessionId = null;
 function arbSSetStage(stage){
+  if(stage==="saved" && arbSEditSnapshot!==null) arbSEditSnapshot = arbSStateNow();   // بعد الحفظ الناجح مفيش تعديلات غير محفوظة
   // idle: form open for entry, final-save visible, export hidden
   // saved: just finalized, final-save hidden, export visible
   // downloaded: export file already downloaded, both hidden
@@ -9146,6 +9399,7 @@ document.getElementById("btnArbPOpinionAdd").addEventListener("click", ()=>{
 
 let arbPLastExportData = null;
 function arbPSetStage(stage){
+  if(stage==="saved" && arbPEditSnapshot!==null) arbPEditSnapshot = arbPStateNow();   // بعد الحفظ الناجح مفيش تعديلات غير محفوظة
   const saveBtn = document.getElementById("btnArbPFinalSave");
   const excelBtn = document.getElementById("btnArbPExportExcel");
   const pdfBtn = document.getElementById("btnArbPExportPdf");
@@ -9750,7 +10004,7 @@ async function arbRunSearch(opts){
   try{
     const pageSize = getConfiguredPageSize();
     const start = (arbSearchCurrentPage - 1) * pageSize;
-    let pageQ = sb.from(ARB_SESSIONS_TABLE).select("*").eq("session_type", arbSearchMode).order("judging_date",{ascending:false}).range(start, start + pageSize - 1);
+    let pageQ = sb.from(ARB_SESSIONS_TABLE).select("*").eq("session_type", arbSearchMode).order("judging_date",{ascending:false}).order("created_at",{ascending:false}).order("form_no",{ascending:false}).range(start, start + pageSize - 1);
     pageQ = applyArbSearchFilters(pageQ);
 
     const sig = computeArbSearchFilterSignature();
@@ -9799,8 +10053,8 @@ function renderArbSearchResults(){
      data is lost; a "(+N)" hint next to the judge name signals there are
      more judges recorded under this same رقم النموذج. */
   if(arbSearchMode==="sensory"){
-    head.innerHTML = `<tr>${selTh}<th>م</th><th>رقم النموذج</th><th>تاريخ التحكيم</th><th>إسم المنتج</th><th>مسئول التحكيم</th><th>القسم</th><th>إسم المُحكَم</th><th>الوظيفة</th><th>الشكل العام</th><th>الطعم</th><th>اللون</th><th>الرائحة</th><th>ملاحظات</th><th>الإجراءات</th></tr>`;
-    let m = 1;
+    head.innerHTML = `<tr>${selTh}<th>رقم النموذج</th><th>تاريخ التحكيم</th><th>إسم المنتج</th><th>مسئول التحكيم</th><th>القسم</th><th>ملاحظات</th><th>الإجراءات</th></tr>`;
+    let m = (Math.max(1, arbSearchCurrentPage) - 1) * getConfiguredPageSize() + 1;  // ترقيم تسلسلى متصل بين الصفحات، أحدث تحكيم = 1
     arbLastSearchResults.forEach(sess=>{
       const canEditThis = isAdmin || myRole==="supervisor" || (sess.created_by && myProfile && sess.created_by === myProfile.id);
       const editBtn = canEditThis?`<button title="تعديل" data-click="arbEditArbSession" data-args='${escapeHtml(JSON.stringify([sess.id, "sensory"]))}'>✏️</button>`:"";
@@ -9810,15 +10064,13 @@ function renderArbSearchResults(){
       const o = opinions[0]||{};
       const extraCount = opinions.length>1?` <span style="opacity:.65;">(+${opinions.length-1})</span>`:"";
       const selCell = `<td class="admin-select-col" style="display:${canBulkDelete()?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
-      rows.push(`<tr>${selCell}<td>${m++}</td><td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(sess.product_name||"")}</td>
+      rows.push(`<tr>${selCell}<td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(sess.product_name||"")}</td>
         <td>${escapeHtml(sess.official_name||"")}</td><td>${escapeHtml(sess.department||"")}</td>
-        <td>${escapeHtml(o.judge_name||"")}${extraCount}</td><td>${escapeHtml(o.job_title||"")}</td>
-        <td>${escapeHtml(o.shape||"")}</td><td>${escapeHtml(o.taste||"")}</td><td>${escapeHtml(o.color||"")}</td><td>${escapeHtml(o.smell||"")}</td>
         <td>${escapeHtml(o.notes||"")}</td>${actionsCell}</tr>`);
     });
   } else {
-    head.innerHTML = `<tr>${selTh}<th>م</th><th>رقم النموذج</th><th>تاريخ التحكيم</th><th>العينات</th><th>مسئول التحكيم</th><th>القسم</th><th>إسم المُحكَم</th><th>الوظيفة</th><th>العينة الأفضل</th><th>الإجراءات</th></tr>`;
-    let m = 1;
+    head.innerHTML = `<tr>${selTh}<th>رقم النموذج</th><th>تاريخ التحكيم</th><th>العينات</th><th>مسئول التحكيم</th><th>القسم</th><th>إسم المُحكَم</th><th>الوظيفة</th><th>العينة الأفضل</th><th>الإجراءات</th></tr>`;
+    let m = (Math.max(1, arbSearchCurrentPage) - 1) * getConfiguredPageSize() + 1;  // ترقيم تسلسلى متصل بين الصفحات، أحدث تحكيم = 1
     arbLastSearchResults.forEach(sess=>{
       const samplesTxt = (sess.samples||[]).map(s=>s.name).join(" / ");
       const canEditThis = isAdmin || myRole==="supervisor" || (sess.created_by && myProfile && sess.created_by === myProfile.id);
@@ -9830,7 +10082,7 @@ function renderArbSearchResults(){
       const best = (sess.samples||[]).find(s=>s.no===o.best_sample_no);
       const allJudges = opinions.map(op=>op.judge_name).filter(Boolean).join(" / ");
       const selCell = `<td class="admin-select-col" style="display:${canBulkDelete()?'':'none'};"><input type="checkbox" class="row-select-cb" ${arbSelectedKeys.has(String(sess.id))?'checked':''} data-change="toggleArbRowSelect" data-args='${escapeHtml(JSON.stringify([sess.id, "__CHECKED__"]))}'></td>`;
-      rows.push(`<tr>${selCell}<td>${m++}</td><td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(samplesTxt)}</td>
+      rows.push(`<tr>${selCell}<td>${escapeHtml(sess.form_no||"")}</td><td>${formatDateDisplay(sess.judging_date)}</td><td class="wrap-cell">${escapeHtml(samplesTxt)}</td>
         <td>${escapeHtml(sess.official_name||"")}</td><td>${escapeHtml(sess.department||"")}</td>
         <td>${escapeHtml(allJudges)}</td><td>${escapeHtml(o.job_title||"")}</td>
         <td>${best?escapeHtml(best.name):""}</td>${actionsCell}</tr>`);
@@ -9918,6 +10170,7 @@ window.arbEditArbSession = async function(sessionId, mode){
     arbPResetOpinionForm();
     renderArbPOpinions();
   }
+  if(mode==="sensory") arbSEditSnapshot = arbSStateNow(); else arbPEditSnapshot = arbPStateNow();
   toast("تم تحميل النموذج للتعديل — عدّل ثم اضغط حفظ","success");
 };
 
@@ -14674,13 +14927,15 @@ const OPEN_RANGE_DATE_IDS = new Set([
   "smpR_to"
 ]);
 async function lockAllDateInputs(){
-  await ensureFlatpickr();
+  /* كل حقول التاريخ بقت نفس حقل التاريخ فى فورم أمر التكليف: <input type="date"> الأصلى
+     (القيمة بتتخزن YYYY-MM-DD زى الأول، والقيود بتتطبّق عن طريق min/max). */
   function ymdLocal(d){
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
+  const val = (id)=> document.getElementById(id)?.value || "";
   document.querySelectorAll('input.date-field').forEach(inp=>{
     if(datePickerInstances[inp.id]) return;
     const prefix = inp.id.split("_")[0];
@@ -14691,95 +14946,40 @@ async function lockAllDateInputs(){
     const isOpenRange = OPEN_RANGE_DATE_IDS.has(inp.id);
     const isRangeTo = inp.id.endsWith("_date_to") && !!document.getElementById(prefix+"_date_from");
     const isRangeFrom = inp.id.endsWith("_date_from") && !!document.getElementById(prefix+"_date_to");
-    const disableFns = [];
-    if(!isOpenRange){
-      disableFns.push(function(date){ return ymdLocal(date) > todayStr(); });
+
+    inp.type = "date";
+    inp.removeAttribute("placeholder");
+    inp.classList.remove("date-field");   // نفس مظهر eo_date بالظبط (بدون أى ستايل إضافى)
+    inp.dataset.nativeDate = "1";
+    datePickerInstances[inp.id] = { native:true };
+
+    function applyLimits(){
+      let min = "", max = "";
+      if(!isOpenRange) max = todayStr();
+      if(isRangeTo){ min = val(prefix+"_date_from"); }
+      else if(isRangeFrom){ const t = val(prefix+"_date_to"); if(t && (!max || t < max)) max = t; }
+      if(isReceiptDate){ min = val(prefix+"_report_date"); }
+      else if(isApprovalDate){
+        const r = val(prefix+"_report_date"), c = val(prefix+"_receipt_date");
+        min = (c && c > r) ? c : (r || c || "");
+      } else if(isArbProductionDate){ const j = val("arbS_judging_date"); if(j && (!max || j < max)) max = j; }
+      else if(isSmpExpiryDate){ min = val(prefix+"_production_date"); }
+      if(min) inp.min = min; else inp.removeAttribute("min");
+      if(max) inp.max = max; else inp.removeAttribute("max");
     }
-    if(isRangeTo){
-      disableFns.push(function(date){
-        const fromVal = document.getElementById(prefix+"_date_from")?.value || "";
-        if(!fromVal) return false;
-        return ymdLocal(date) < fromVal;
-      });
-    } else if(isRangeFrom){
-      disableFns.push(function(date){
-        const toVal = document.getElementById(prefix+"_date_to")?.value || "";
-        if(!toVal) return false;
-        return ymdLocal(date) > toVal;
-      });
-    }
-    if(isReceiptDate){
-      disableFns.push(function(date){
-        const reportVal = document.getElementById(prefix+"_report_date")?.value || "";
-        if(!reportVal) return false;
-        return ymdLocal(date) < reportVal;
-      });
-    } else if(isApprovalDate){
-      disableFns.push(function(date){
-        const reportVal = document.getElementById(prefix+"_report_date")?.value || "";
-        const receiptVal = document.getElementById(prefix+"_receipt_date")?.value || "";
-        const minVal = (receiptVal && receiptVal > reportVal) ? receiptVal : (reportVal || receiptVal || "");
-        if(!minVal) return false;
-        return ymdLocal(date) < minVal;
-      });
-    } else if(isArbProductionDate){
-      disableFns.push(function(date){
-        const judgingVal = document.getElementById("arbS_judging_date")?.value || "";
-        if(!judgingVal) return false;
-        return ymdLocal(date) > judgingVal;
-      });
-    } else if(isSmpExpiryDate){
-      disableFns.push(function(date){
-        const prodVal = document.getElementById(prefix+"_production_date")?.value || "";
-        if(!prodVal) return false;
-        return ymdLocal(date) < prodVal;
-      });
-    }
-    datePickerInstances[inp.id] = flatpickr(inp, {
-      dateFormat: "Y-m-d",
-      altInput: true,
-      altFormat: "d/m/Y",
-      allowInput: true,
-      disableMobile: true,
-      disable: disableFns,
-      onOpen: function(selectedDates, dateStr, instance){
-        if(instance.input.value) return;
-        if(isReceiptDate){
-          const reportVal = document.getElementById(prefix+"_report_date")?.value || "";
-          if(reportVal){ try{ instance.jumpToDate(reportVal); }catch(e){} }
-        } else if(isApprovalDate){
-          const reportVal = document.getElementById(prefix+"_report_date")?.value || "";
-          const receiptVal = document.getElementById(prefix+"_receipt_date")?.value || "";
-          const minVal = (receiptVal && receiptVal > reportVal) ? receiptVal : (reportVal || receiptVal || "");
-          if(minVal){ try{ instance.jumpToDate(minVal); }catch(e){} }
-        } else if(isArbProductionDate){
-          const judgingVal = document.getElementById("arbS_judging_date")?.value || "";
-          if(judgingVal){ try{ instance.jumpToDate(judgingVal); }catch(e){} }
-        } else if(isSmpExpiryDate){
-          const prodVal = document.getElementById(prefix+"_production_date")?.value || "";
-          if(prodVal){ try{ instance.jumpToDate(prodVal); }catch(e){} }
-        } else if(isRangeTo){
-          const fromVal = document.getElementById(prefix+"_date_from")?.value || "";
-          if(fromVal){ try{ instance.jumpToDate(fromVal); }catch(e){} }
-        } else if(isRangeFrom){
-          const toVal = document.getElementById(prefix+"_date_to")?.value || "";
-          if(toVal){ try{ instance.jumpToDate(toVal); }catch(e){} }
-        }
-      },
-      onChange: function(selectedDates, dateStr, instance){
-        instance.input.dispatchEvent(new Event("change", { bubbles:true }));
-      }
-    });
+    applyLimits();
+    ["focus","mousedown","touchstart","click"].forEach(ev=>inp.addEventListener(ev, applyLimits, { passive:true }));
+
     inp.addEventListener("change", ()=>{
       if(isRangeTo){
-        const fromVal = document.getElementById(prefix+"_date_from")?.value || "";
+        const fromVal = val(prefix+"_date_from");
         if(fromVal && inp.value && inp.value < fromVal){
           toast("لا يمكن أن يكون تاريخ (إلى) قبل تاريخ (من)","error");
           setDateValue(inp.id, "");
           return;
         }
       } else if(isRangeFrom){
-        const toVal = document.getElementById(prefix+"_date_to")?.value || "";
+        const toVal = val(prefix+"_date_to");
         if(toVal && inp.value && inp.value > toVal){
           toast("لا يمكن أن يكون تاريخ (من) بعد تاريخ (إلى)","error");
           setDateValue(inp.id, "");
@@ -14793,7 +14993,7 @@ async function lockAllDateInputs(){
         return;
       }
       if(isArbProductionDate){
-        const judgingVal = document.getElementById("arbS_judging_date")?.value || "";
+        const judgingVal = val("arbS_judging_date");
         if(judgingVal && inp.value && inp.value > judgingVal){
           toast("لا يمكن أن يكون تاريخ التصنيع بعد تاريخ التحكيم","error");
           setDateValue(inp.id, "");
@@ -14804,12 +15004,13 @@ async function lockAllDateInputs(){
 }
 
 function setDateValue(id, value){
-  const fp = datePickerInstances[id];
-  if(fp){ fp.setDate(value || null, true); }
-  else{
-    const el = document.getElementById(id);
-    if(el) el.value = value || "";
-  }
+  const el = document.getElementById(id);
+  if(!el) return;
+  const nv = value || "";
+  const changed = el.value !== nv;
+  el.value = nv;
+  /* نفس سلوك المكتبة القديمة: إطلاق حدث change عشان باقى المنطق (مسح/مزامنة التواريخ) يشتغل */
+  if(changed) el.dispatchEvent(new Event("change", { bubbles:true }));
 }
 
 /* =========================================================
